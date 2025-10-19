@@ -74,6 +74,29 @@
             margin-bottom: 20px;
             padding-bottom: 15px;
             border-bottom: 2px solid #000000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-badge {
+            font-size: 14px;
+            padding: 5px 15px;
+            background: #f0f0f0;
+            border: 2px solid #000000;
+            font-weight: 600;
+        }
+
+        .status-badge.waiting {
+            background: #fff8e1;
+        }
+
+        .status-badge.calling {
+            background: #e3f2fd;
+        }
+
+        .status-badge.serving {
+            background: #e8f5e9;
         }
 
         .current-call-section {
@@ -122,10 +145,24 @@
             justify-content: space-between;
             align-items: center;
             font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        .member-item.absent {
+            background: #f5f5f5;
+            opacity: 0.5;
+            border-color: #cccccc;
         }
 
         .member-info {
             font-weight: 600;
+            flex: 1;
+        }
+
+        .member-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
         }
 
         .member-badge {
@@ -135,15 +172,37 @@
             background: #ffffff;
         }
 
-        .member-badge.vip {
+        .member-button {
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            border: 2px solid #000000;
+            background: #ffffff;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .member-button:hover {
+            opacity: 0.8;
+        }
+
+        .member-button.arrived {
             background: #000000;
             color: #ffffff;
         }
 
-        .action-buttons {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
+        .member-status {
+            font-size: 14px;
+            font-weight: 600;
+            padding: 8px 16px;
+        }
+
+        .member-status.arrived {
+            color: #2e7d32;
+        }
+
+        .member-status.absent {
+            color: #d32f2f;
         }
 
         .button {
@@ -155,8 +214,13 @@
             transition: opacity 0.2s;
         }
 
-        .button:hover {
+        .button:hover:not(:disabled) {
             opacity: 0.8;
+        }
+
+        .button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
         }
 
         .button-primary {
@@ -164,10 +228,27 @@
             color: #ffffff;
         }
 
-        .button-danger {
+        .button-secondary {
             background: #ffffff;
             color: #000000;
             border: 2px solid #000000;
+        }
+
+        .button-danger {
+            background: #ffffff;
+            color: #d32f2f;
+            border: 2px solid #d32f2f;
+        }
+
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .single-action {
+            display: block;
+            width: 100%;
         }
 
         .qr-scan-section {
@@ -243,23 +324,6 @@
             color: #666666;
         }
 
-        .call-next-button {
-            grid-column: 1 / -1;
-            padding: 25px;
-            font-size: 20px;
-            font-weight: 700;
-            background: #000000;
-            color: #ffffff;
-            border: none;
-            cursor: pointer;
-            transition: opacity 0.2s;
-            margin-top: 10px;
-        }
-
-        .call-next-button:hover {
-            opacity: 0.8;
-        }
-
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -284,11 +348,27 @@
             font-weight: 700;
         }
 
-        .no-group {
+        .next-preview {
+            background: #fff8e1;
+            border: 2px solid #000000;
+            padding: 20px;
+            margin-bottom: 20px;
             text-align: center;
-            padding: 60px;
+        }
+
+        .next-preview-label {
+            font-size: 14px;
             color: #666666;
-            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .next-preview-number {
+            font-size: 32px;
+            font-weight: 700;
+        }
+
+        .hidden {
+            display: none;
         }
     </style>
 </head>
@@ -306,46 +386,88 @@
         </div>
 
         <div class="card current-call-section">
-            <div class="card-title">📢 現在呼び出し中</div>
+            <div class="card-title">
+                <span id="sectionTitle">📋 次の案内予定</span>
+                <span class="status-badge waiting" id="statusBadge">待機中</span>
+            </div>
             
-            <div id="groupDisplayArea">
+            <!-- 待機中：次のグループプレビュー -->
+            <div id="waitingState">
+                <div class="next-preview">
+                    <div class="next-preview-label">次のグループ</div>
+                    <div class="next-preview-number" id="nextGroupNumber">GROUP 043</div>
+                </div>
+                
+                <div class="members-list" id="nextMembersList" style="margin-bottom: 20px;">
+                    <!-- 次のメンバーリストが表示される -->
+                </div>
+                
+                <div style="text-align: center; margin-bottom: 20px; font-size: 18px; font-weight: 600;" id="nextTotalPeople">
+                    合計: 4人
+                </div>
+                
+                <button class="button button-primary single-action" onclick="callGroup()">
+                    このグループを呼び出す
+                </button>
+            </div>
+
+            <!-- 呼び出し中：到着確認 -->
+            <div id="callingState" class="hidden">
                 <div class="group-display">
                     <div class="group-header">
-                        <div class="group-number" id="currentGroupNumber">GROUP 042</div>
+                        <div class="group-number" id="currentGroupNumber">GROUP 043</div>
                         <div class="group-type" id="currentGroupType">予約あり優先</div>
                     </div>
 
                     <div class="members-list" id="membersList">
-                        <div class="member-item">
-                            <div class="member-info">R12345 山田太郎さん - 2人</div>
-                            <div class="member-badge">予約あり</div>
-                        </div>
-                        <div class="member-item">
-                            <div class="member-info">W00089 鈴木花子さん - 2人</div>
-                            <div class="member-badge">予約なし</div>
-                        </div>
+                        <!-- メンバーリストが動的に生成される -->
                     </div>
 
                     <div style="text-align: center; margin-bottom: 20px; font-size: 18px; font-weight: 600;" id="totalPeople">
-                        合計: 4人
+                        合計: 0人 | 到着: 0人 | 不在: 0人
                     </div>
 
                     <div class="action-buttons">
-                        <button class="button button-primary" onclick="markArrived()">✓ 全員到着</button>
-                        <button class="button button-danger" onclick="markAbsent()">✗ いない</button>
+                        <button class="button button-primary" onclick="startServing()" id="startServingButton" disabled>
+                            ✓ 案内を開始
+                        </button>
+                        <button class="button button-danger" onclick="cancelGroup()">
+                            ✗ グループをキャンセル
+                        </button>
+                    </div>
+                </div>
+
+                <div class="qr-scan-section">
+                    <div class="qr-scan-icon">📷</div>
+                    <div class="qr-scan-text">QRコードをスキャン</div>
+                    <div class="qr-scan-subtext">カメラまたはQRリーダーで読み取ってください</div>
+                    <button class="button button-primary" style="margin-top: 20px; width: 300px;" onclick="simulateScan()">
+                        スキャンをシミュレート
+                    </button>
+                    <div class="qr-result" id="qrResult">
+                        ✓ R12345 を確認しました（2人）
                     </div>
                 </div>
             </div>
 
-            <div class="qr-scan-section">
-                <div class="qr-scan-icon">📷</div>
-                <div class="qr-scan-text">QRコードをスキャン</div>
-                <div class="qr-scan-subtext">カメラまたはQRリーダーで読み取ってください</div>
-                <button class="button button-primary" style="margin-top: 20px; width: 300px;" onclick="simulateScan()">
-                    スキャンをシミュレート
-                </button>
-                <div class="qr-result" id="qrResult">
-                    ✓ R12345 を確認しました（2人）
+            <!-- 案内中 -->
+            <div id="servingState" class="hidden">
+                <div class="group-display">
+                    <div class="group-header">
+                        <div class="group-number" id="servingGroupNumber">GROUP 043</div>
+                        <div class="group-type">アトラクション実施中</div>
+                    </div>
+
+                    <div style="text-align: center; padding: 40px; font-size: 20px; color: #666666;">
+                        アトラクションを実施中です...<br>
+                        <span style="font-size: 16px; margin-top: 10px; display: block;">
+                            完了したら下のボタンを押してください
+                        </span>
+                    </div>
+
+                    <button class="button button-primary single-action" onclick="completeServing()">
+                        案内完了 - 次のグループへ
+                    </button>
                 </div>
             </div>
         </div>
@@ -402,27 +524,90 @@
                 </div>
             </div>
         </div>
-
-        <button class="call-next-button" onclick="callNextGroup()">
-            次のグループを呼び出す ▶
-        </button>
     </div>
 
     <script>
+        let currentState = 'waiting'; // waiting, calling, serving
         let currentGroupId = null;
+        let currentGroupNum = 43;
+        let memberStatuses = {}; // { memberId: 'pending' | 'arrived' | 'absent' }
+        let currentMembers = [];
+        let nextMembers = []; // 次のグループのメンバー
 
-        function callNextGroup() {
-            if (confirm('次のグループを呼び出しますか？\nサイネージに表示されます。')) {
-                // ダミーデータで更新
-                const groupNum = parseInt(document.getElementById('currentGroupNumber').textContent.replace('GROUP ', '')) + 1;
+        // 初期化時に次のグループを生成
+        function initNextGroup() {
+            nextMembers = generateDummyMembers();
+            updateNextMembersList();
+        }
+
+        function updateNextMembersList() {
+            const membersList = document.getElementById('nextMembersList');
+            membersList.innerHTML = '';
+            
+            let totalPeople = 0;
+            
+            nextMembers.forEach(member => {
+                totalPeople += member.people;
+                const badge = member.type === 'reservation' ? '予約あり' : '予約なし';
                 
-                document.getElementById('currentGroupNumber').textContent = `GROUP ${String(groupNum).padStart(3, '0')}`;
+                membersList.innerHTML += `
+                    <div class="member-item">
+                        <div class="member-info">${member.id} - ${member.people}人</div>
+                        <div class="member-actions">
+                            <div class="member-badge">${badge}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            document.getElementById('nextTotalPeople').textContent = `合計: ${totalPeople}人`;
+        }
+
+        function setState(newState) {
+            currentState = newState;
+            
+            // すべての状態を非表示
+            document.getElementById('waitingState').classList.add('hidden');
+            document.getElementById('callingState').classList.add('hidden');
+            document.getElementById('servingState').classList.add('hidden');
+            
+            // 該当する状態を表示
+            if (newState === 'waiting') {
+                document.getElementById('waitingState').classList.remove('hidden');
+                document.getElementById('sectionTitle').textContent = '📋 次の案内予定';
+                document.getElementById('statusBadge').textContent = '待機中';
+                document.getElementById('statusBadge').className = 'status-badge waiting';
+            } else if (newState === 'calling') {
+                document.getElementById('callingState').classList.remove('hidden');
+                document.getElementById('sectionTitle').textContent = '📢 呼び出し中';
+                document.getElementById('statusBadge').textContent = '到着確認中';
+                document.getElementById('statusBadge').className = 'status-badge calling';
+            } else if (newState === 'serving') {
+                document.getElementById('servingState').classList.remove('hidden');
+                document.getElementById('sectionTitle').textContent = '🎮 案内中';
+                document.getElementById('statusBadge').textContent = '実施中';
+                document.getElementById('statusBadge').className = 'status-badge serving';
+            }
+        }
+
+        function callGroup() {
+            if (confirm('GROUP ' + String(currentGroupNum).padStart(3, '0') + ' を呼び出しますか？\nサイネージに表示されます。')) {
+                // グループ情報を設定
+                document.getElementById('currentGroupNumber').textContent = 'GROUP ' + String(currentGroupNum).padStart(3, '0');
+                document.getElementById('servingGroupNumber').textContent = 'GROUP ' + String(currentGroupNum).padStart(3, '0');
                 
-                // ダミーメンバー生成
-                const members = generateDummyMembers();
-                updateMembersList(members);
+                // 次のグループのメンバーを現在のグループに移動
+                currentMembers = nextMembers;
+                updateMembersList(currentMembers);
                 
-                alert(`GROUP ${String(groupNum).padStart(3, '0')} を呼び出しました`);
+                // メンバーステータスをリセット
+                memberStatuses = {};
+                currentMembers.forEach(m => {
+                    memberStatuses[m.id] = 'pending';
+                });
+                
+                updateGroupSummary();
+                setState('calling');
                 
                 // 実装: APIコール
                 /*
@@ -434,80 +619,217 @@
                 .then(r => r.json())
                 .then(data => {
                     currentGroupId = data.groupId;
-                    updateDisplay(data);
+                    currentMembers = data.members;
+                    updateMembersList(data.members);
                 });
                 */
             }
         }
 
-        function markArrived() {
-            if (confirm('全員到着を確認しましたか？')) {
-                alert('案内完了しました。次のグループを呼び出してください。');
+        function markMemberArrived(memberId) {
+            memberStatuses[memberId] = 'arrived';
+            updateMemberDisplay(memberId);
+            updateGroupSummary();
+        }
+
+        function markMemberAbsent(memberId) {
+            if (confirm('この方は来ていませんか？')) {
+                memberStatuses[memberId] = 'absent';
+                updateMemberDisplay(memberId);
+                updateGroupSummary();
+            }
+        }
+
+        function updateMemberDisplay(memberId) {
+            const memberItem = document.querySelector(`[data-member-id="${memberId}"]`);
+            const actionsDiv = memberItem.querySelector('.member-actions');
+            const status = memberStatuses[memberId];
+            
+            if (status === 'arrived') {
+                memberItem.classList.remove('absent');
+                actionsDiv.innerHTML = `
+                    ${actionsDiv.querySelector('.member-badge').outerHTML}
+                    <span class="member-status arrived">✓ 到着済み</span>
+                `;
+            } else if (status === 'absent') {
+                memberItem.classList.add('absent');
+                actionsDiv.innerHTML = `
+                    ${actionsDiv.querySelector('.member-badge').outerHTML}
+                    <span class="member-status absent">✗ 不在</span>
+                `;
+            }
+        }
+
+        function updateGroupSummary() {
+            const arrivedCount = Object.values(memberStatuses).filter(s => s === 'arrived').length;
+            const absentCount = Object.values(memberStatuses).filter(s => s === 'absent').length;
+            const totalCount = Object.keys(memberStatuses).length;
+            
+            // 合計人数を計算
+            const memberItems = document.querySelectorAll('.member-item');
+            let totalPeople = 0;
+            let arrivedPeople = 0;
+            let absentPeople = 0;
+            
+            memberItems.forEach(item => {
+                const memberId = item.dataset.memberId;
+                const peopleText = item.querySelector('.member-info').textContent;
+                const people = parseInt(peopleText.match(/(\d+)人/)[1]);
                 
+                totalPeople += people;
+                
+                if (memberStatuses[memberId] === 'arrived') {
+                    arrivedPeople += people;
+                } else if (memberStatuses[memberId] === 'absent') {
+                    absentPeople += people;
+                }
+            });
+            
+            document.getElementById('totalPeople').textContent = 
+                `合計: ${totalPeople}人 | 到着: ${arrivedPeople}人 | 不在: ${absentPeople}人`;
+            
+            // 案内開始ボタンの有効/無効
+            const startButton = document.getElementById('startServingButton');
+            if (arrivedCount > 0 || absentCount === totalCount) {
+                startButton.disabled = false;
+            } else {
+                startButton.disabled = true;
+            }
+        }
+
+        function startServing() {
+            const arrivedCount = Object.values(memberStatuses).filter(s => s === 'arrived').length;
+            const absentCount = Object.values(memberStatuses).filter(s => s === 'absent').length;
+            
+            if (arrivedCount === 0) {
+                alert('到着している方がいません');
+                return;
+            }
+            
+            let message = '案内を開始しますか？\n\n';
+            message += `到着: ${arrivedCount}名\n`;
+            if (absentCount > 0) {
+                message += `不在: ${absentCount}名\n\n`;
+                message += '不在の方は欠席として記録されます。';
+            }
+            
+            if (confirm(message)) {
+                setState('serving');
+                
+                // 実装: APIコール
+                /*
+                fetch('/api/groups/start-serving', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        groupId: currentGroupId,
+                        memberStatuses: memberStatuses
+                    })
+                });
+                */
+            }
+        }
+
+        function completeServing() {
+            if (confirm('案内が完了しましたか？')) {
                 // 統計を更新
+                const arrivedCount = Object.values(memberStatuses).filter(s => s === 'arrived').length;
+                const absentCount = Object.values(memberStatuses).filter(s => s === 'absent').length;
+                
                 const currentTotal = parseInt(document.getElementById('totalGroups').textContent);
                 document.getElementById('totalGroups').textContent = currentTotal + 1;
                 
+                const memberItems = document.querySelectorAll('#membersList .member-item');
+                let arrivedPeople = 0;
+                memberItems.forEach(item => {
+                    const memberId = item.dataset.memberId;
+                    if (memberStatuses[memberId] === 'arrived') {
+                        const peopleText = item.querySelector('.member-info').textContent;
+                        arrivedPeople += parseInt(peopleText.match(/(\d+)人/)[1]);
+                    }
+                });
+                
                 const currentPeople = parseInt(document.getElementById('totalPeopleServed').textContent);
-                document.getElementById('totalPeopleServed').textContent = currentPeople + 4;
+                document.getElementById('totalPeopleServed').textContent = currentPeople + arrivedPeople;
+                
+                if (absentCount > 0) {
+                    const currentAbsent = parseInt(document.getElementById('absentGroups').textContent);
+                    document.getElementById('absentGroups').textContent = currentAbsent + absentCount;
+                }
+                
+                // 次のグループへ
+                currentGroupNum++;
+                document.getElementById('nextGroupNumber').textContent = 'GROUP ' + String(currentGroupNum).padStart(3, '0');
+                
+                // 次のグループのメンバーを生成
+                nextMembers = generateDummyMembers();
+                updateNextMembersList();
+                
+                setState('waiting');
                 
                 // 実装: APIコール
                 /*
-                fetch('/api/groups/mark-arrived', { 
+                fetch('/api/groups/complete', { 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ groupId: currentGroupId })
+                    body: JSON.stringify({ 
+                        groupId: currentGroupId
+                    })
                 });
                 */
             }
         }
 
-        function markAbsent() {
-            if (confirm('このグループは欠席としてマークされます。\n次のグループを呼び出しますか？')) {
-                // 欠席数を更新
+        function cancelGroup() {
+            if (confirm('このグループ全体をキャンセルしますか？')) {
+                const absentCount = Object.keys(memberStatuses).length;
                 const currentAbsent = parseInt(document.getElementById('absentGroups').textContent);
-                document.getElementById('absentGroups').textContent = currentAbsent + 1;
+                document.getElementById('absentGroups').textContent = currentAbsent + absentCount;
                 
-                alert('欠席として記録しました');
+                // 次のグループへ
+                currentGroupNum++;
+                document.getElementById('nextGroupNumber').textContent = 'GROUP ' + String(currentGroupNum).padStart(3, '0');
+                
+                // 次のグループのメンバーを生成
+                nextMembers = generateDummyMembers();
+                updateNextMembersList();
+                
+                setState('waiting');
                 
                 // 実装: APIコール
                 /*
-                fetch('/api/groups/mark-absent', { 
+                fetch('/api/groups/cancel', { 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ groupId: currentGroupId })
-                })
-                .then(() => callNextGroup());
+                });
                 */
-                
-                setTimeout(() => callNextGroup(), 500);
             }
         }
 
         function simulateScan() {
-            const result = document.getElementById('qrResult');
-            const randomId = 'R' + Math.floor(10000 + Math.random() * 90000);
-            const randomPeople = Math.floor(1 + Math.random() * 4);
+            const memberIds = Object.keys(memberStatuses).filter(id => memberStatuses[id] === 'pending');
+            if (memberIds.length === 0) {
+                alert('全員の確認が完了しています');
+                return;
+            }
             
-            result.textContent = `✓ ${randomId} を確認しました（${randomPeople}人）`;
+            // ランダムなメンバーIDを選択
+            const randomMemberId = memberIds[Math.floor(Math.random() * memberIds.length)];
+            const memberItem = document.querySelector(`[data-member-id="${randomMemberId}"]`);
+            const peopleText = memberItem.querySelector('.member-info').textContent;
+            const people = parseInt(peopleText.match(/(\d+)人/)[1]);
+            
+            const result = document.getElementById('qrResult');
+            result.textContent = `✓ ${randomMemberId} を確認しました（${people}人）`;
             result.style.display = 'block';
+            
+            // 自動的に到着としてマーク
+            markMemberArrived(randomMemberId);
             
             setTimeout(() => {
                 result.style.display = 'none';
             }, 3000);
-            
-            // 実装: QRスキャン処理
-            /*
-            fetch('/api/scan-qr', { 
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ qrToken: scannedToken })
-            })
-            .then(r => r.json())
-            .then(data => {
-                showScanResult(data);
-            });
-            */
         }
 
         function generateDummyMembers() {
@@ -519,11 +841,9 @@
                 const type = types[Math.floor(Math.random() * types.length)];
                 const prefix = type === 'reservation' ? 'R' : 'W';
                 const id = prefix + Math.floor(10000 + Math.random() * 90000);
-                const names = ['山田', '佐藤', '鈴木', '田中', '高橋'];
-                const name = names[Math.floor(Math.random() * names.length)];
                 const people = Math.floor(1 + Math.random() * 3);
                 
-                members.push({ id, name, people, type });
+                members.push({ id, people, type });
             }
             
             return members;
@@ -533,47 +853,33 @@
             const membersList = document.getElementById('membersList');
             membersList.innerHTML = '';
             
-            let totalPeople = 0;
             members.forEach(member => {
-                totalPeople += member.people;
                 const badge = member.type === 'reservation' ? '予約あり' : '予約なし';
                 
                 membersList.innerHTML += `
-                    <div class="member-item">
-                        <div class="member-info">${member.id} ${member.name}さん - ${member.people}人</div>
-                        <div class="member-badge">${badge}</div>
+                    <div class="member-item" data-member-id="${member.id}">
+                        <div class="member-info">${member.id} - ${member.people}人</div>
+                        <div class="member-actions">
+                            <div class="member-badge">${badge}</div>
+                            <button class="member-button" onclick="markMemberArrived('${member.id}')">到着</button>
+                            <button class="member-button" onclick="markMemberAbsent('${member.id}')">いない</button>
+                        </div>
                     </div>
                 `;
             });
-            
-            document.getElementById('totalPeople').textContent = `合計: ${totalPeople}人`;
         }
 
         function updateWaitingStatus() {
-            // ダミーデータで更新
             document.getElementById('reservationGroups').textContent = Math.floor(3 + Math.random() * 8);
             document.getElementById('reservationPeople').textContent = Math.floor(10 + Math.random() * 20);
             document.getElementById('walkinGroups').textContent = Math.floor(2 + Math.random() * 6);
             document.getElementById('walkinPeople').textContent = Math.floor(5 + Math.random() * 15);
         }
 
-        // 定期的に待機状況を更新
+        // 初期化
+        initNextGroup();
+        setState('waiting');
         setInterval(updateWaitingStatus, 10000);
-
-        // 実際の実装では Firestore リアルタイムリスナーを使用
-        /*
-        db.collection('current_call').doc('display').onSnapshot((doc) => {
-            const data = doc.data();
-            updateDisplay(data);
-        });
-        
-        db.collection('reservations')
-          .where('date', '==', today)
-          .where('status', '==', 'checked_in')
-          .onSnapshot((snapshot) => {
-              updateWaitingStatus(snapshot);
-          });
-        */
     </script>
 </body>
 </html>
