@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>スタッフ用管理画面 - 2J アトラクション</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            background: #f5f5f5;
+            color: #000000;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1880px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .header {
+            grid-column: 1 / -1;
+            background: #000000;
+            color: #ffffff;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-left h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .header-left .status {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .header-right {
+            text-align: right;
+        }
+
+        .header-right .turn {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .header-right .time {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .card {
+            background: #ffffff;
+            border: 2px solid #000000;
+            padding: 25px;
+        }
+
+        .card-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #000000;
+        }
+
+        .current-call-section {
+            grid-column: 1 / -1;
+        }
+
+        .group-display {
+            background: #f8f8f8;
+            border: 3px solid #000000;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+
+        .group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .group-number {
+            font-size: 48px;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+
+        .group-type {
+            font-size: 16px;
+            background: #000000;
+            color: #ffffff;
+            padding: 8px 16px;
+            font-weight: 600;
+        }
+
+        .members-list {
+            display: grid;
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+
+        .member-item {
+            background: #ffffff;
+            border: 2px solid #e0e0e0;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 16px;
+        }
+
+        .member-info {
+            font-weight: 600;
+        }
+
+        .member-badge {
+            font-size: 12px;
+            padding: 4px 12px;
+            border: 1px solid #000000;
+            background: #ffffff;
+        }
+
+        .member-badge.vip {
+            background: #000000;
+            color: #ffffff;
+        }
+
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .button {
+            padding: 18px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .button:hover {
+            opacity: 0.8;
+        }
+
+        .button-primary {
+            background: #000000;
+            color: #ffffff;
+        }
+
+        .button-danger {
+            background: #ffffff;
+            color: #000000;
+            border: 2px solid #000000;
+        }
+
+        .qr-scan-section {
+            text-align: center;
+            padding: 30px;
+            background: #f8f8f8;
+            border: 3px dashed #000000;
+            margin-top: 20px;
+        }
+
+        .qr-scan-icon {
+            font-size: 64px;
+            margin-bottom: 15px;
+        }
+
+        .qr-scan-text {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .qr-scan-subtext {
+            font-size: 14px;
+            color: #666666;
+        }
+
+        .qr-result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e8f5e9;
+            border: 2px solid #000000;
+            font-size: 16px;
+            font-weight: 600;
+            display: none;
+        }
+
+        .waiting-section {
+            display: grid;
+            gap: 15px;
+        }
+
+        .waiting-card {
+            background: #f8f8f8;
+            border: 2px solid #000000;
+            padding: 20px;
+        }
+
+        .waiting-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .waiting-count {
+            display: flex;
+            gap: 30px;
+            font-size: 14px;
+        }
+
+        .count-item {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+
+        .count-number {
+            font-size: 32px;
+            font-weight: 700;
+        }
+
+        .count-label {
+            font-size: 14px;
+            color: #666666;
+        }
+
+        .call-next-button {
+            grid-column: 1 / -1;
+            padding: 25px;
+            font-size: 20px;
+            font-weight: 700;
+            background: #000000;
+            color: #ffffff;
+            border: none;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            margin-top: 10px;
+        }
+
+        .call-next-button:hover {
+            opacity: 0.8;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .stat-card {
+            background: #f8f8f8;
+            border: 2px solid #000000;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666666;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .no-group {
+            text-align: center;
+            padding: 60px;
+            color: #666666;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <h1>2J アトラクション - スタッフ管理画面</h1>
+                <div class="status">11月1日（金） | ログイン中</div>
+            </div>
+            <div class="header-right">
+                <div class="turn" id="currentTurn">現在: 予約あり優先ターン</div>
+                <div class="time" id="nextTime">次回予測時刻: 14:35</div>
+            </div>
+        </div>
+
+        <div class="card current-call-section">
+            <div class="card-title">📢 現在呼び出し中</div>
+            
+            <div id="groupDisplayArea">
+                <div class="group-display">
+                    <div class="group-header">
+                        <div class="group-number" id="currentGroupNumber">GROUP 042</div>
+                        <div class="group-type" id="currentGroupType">予約あり優先</div>
+                    </div>
+
+                    <div class="members-list" id="membersList">
+                        <div class="member-item">
+                            <div class="member-info">R12345 山田太郎さん - 2人</div>
+                            <div class="member-badge">予約あり</div>
+                        </div>
+                        <div class="member-item">
+                            <div class="member-info">W00089 鈴木花子さん - 2人</div>
+                            <div class="member-badge">予約なし</div>
+                        </div>
+                    </div>
+
+                    <div style="text-align: center; margin-bottom: 20px; font-size: 18px; font-weight: 600;" id="totalPeople">
+                        合計: 4人
+                    </div>
+
+                    <div class="action-buttons">
+                        <button class="button button-primary" onclick="markArrived()">✓ 全員到着</button>
+                        <button class="button button-danger" onclick="markAbsent()">✗ いない</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="qr-scan-section">
+                <div class="qr-scan-icon">📷</div>
+                <div class="qr-scan-text">QRコードをスキャン</div>
+                <div class="qr-scan-subtext">カメラまたはQRリーダーで読み取ってください</div>
+                <button class="button button-primary" style="margin-top: 20px; width: 300px;" onclick="simulateScan()">
+                    スキャンをシミュレート
+                </button>
+                <div class="qr-result" id="qrResult">
+                    ✓ R12345 を確認しました（2人）
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">👥 待機状況</div>
+            
+            <div class="waiting-section">
+                <div class="waiting-card">
+                    <div class="waiting-title">予約あり待機</div>
+                    <div class="waiting-count">
+                        <div class="count-item">
+                            <span class="count-number" id="reservationGroups">5</span>
+                            <span class="count-label">組</span>
+                        </div>
+                        <div class="count-item">
+                            <span class="count-number" id="reservationPeople">15</span>
+                            <span class="count-label">人</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="waiting-card">
+                    <div class="waiting-title">予約なし待機</div>
+                    <div class="waiting-count">
+                        <div class="count-item">
+                            <span class="count-number" id="walkinGroups">3</span>
+                            <span class="count-label">組</span>
+                        </div>
+                        <div class="count-item">
+                            <span class="count-number" id="walkinPeople">8</span>
+                            <span class="count-label">人</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">📊 本日の実績</div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">案内組数</div>
+                    <div class="stat-value" id="totalGroups">42</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">総人数</div>
+                    <div class="stat-value" id="totalPeopleServed">162</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">欠席組数</div>
+                    <div class="stat-value" id="absentGroups">3</div>
+                </div>
+            </div>
+        </div>
+
+        <button class="call-next-button" onclick="callNextGroup()">
+            次のグループを呼び出す ▶
+        </button>
+    </div>
+
+    <script>
+        let currentGroupId = null;
+
+        function callNextGroup() {
+            if (confirm('次のグループを呼び出しますか？\nサイネージに表示されます。')) {
+                // ダミーデータで更新
+                const groupNum = parseInt(document.getElementById('currentGroupNumber').textContent.replace('GROUP ', '')) + 1;
+                
+                document.getElementById('currentGroupNumber').textContent = `GROUP ${String(groupNum).padStart(3, '0')}`;
+                
+                // ダミーメンバー生成
+                const members = generateDummyMembers();
+                updateMembersList(members);
+                
+                alert(`GROUP ${String(groupNum).padStart(3, '0')} を呼び出しました`);
+                
+                // 実装: APIコール
+                /*
+                fetch('/api/groups/call-next', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ date: getCurrentDate() })
+                })
+                .then(r => r.json())
+                .then(data => {
+                    currentGroupId = data.groupId;
+                    updateDisplay(data);
+                });
+                */
+            }
+        }
+
+        function markArrived() {
+            if (confirm('全員到着を確認しましたか？')) {
+                alert('案内完了しました。次のグループを呼び出してください。');
+                
+                // 統計を更新
+                const currentTotal = parseInt(document.getElementById('totalGroups').textContent);
+                document.getElementById('totalGroups').textContent = currentTotal + 1;
+                
+                const currentPeople = parseInt(document.getElementById('totalPeopleServed').textContent);
+                document.getElementById('totalPeopleServed').textContent = currentPeople + 4;
+                
+                // 実装: APIコール
+                /*
+                fetch('/api/groups/mark-arrived', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ groupId: currentGroupId })
+                });
+                */
+            }
+        }
+
+        function markAbsent() {
+            if (confirm('このグループは欠席としてマークされます。\n次のグループを呼び出しますか？')) {
+                // 欠席数を更新
+                const currentAbsent = parseInt(document.getElementById('absentGroups').textContent);
+                document.getElementById('absentGroups').textContent = currentAbsent + 1;
+                
+                alert('欠席として記録しました');
+                
+                // 実装: APIコール
+                /*
+                fetch('/api/groups/mark-absent', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ groupId: currentGroupId })
+                })
+                .then(() => callNextGroup());
+                */
+                
+                setTimeout(() => callNextGroup(), 500);
+            }
+        }
+
+        function simulateScan() {
+            const result = document.getElementById('qrResult');
+            const randomId = 'R' + Math.floor(10000 + Math.random() * 90000);
+            const randomPeople = Math.floor(1 + Math.random() * 4);
+            
+            result.textContent = `✓ ${randomId} を確認しました（${randomPeople}人）`;
+            result.style.display = 'block';
+            
+            setTimeout(() => {
+                result.style.display = 'none';
+            }, 3000);
+            
+            // 実装: QRスキャン処理
+            /*
+            fetch('/api/scan-qr', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ qrToken: scannedToken })
+            })
+            .then(r => r.json())
+            .then(data => {
+                showScanResult(data);
+            });
+            */
+        }
+
+        function generateDummyMembers() {
+            const types = ['reservation', 'walkIn'];
+            const memberCount = Math.floor(2 + Math.random() * 2);
+            const members = [];
+            
+            for (let i = 0; i < memberCount; i++) {
+                const type = types[Math.floor(Math.random() * types.length)];
+                const prefix = type === 'reservation' ? 'R' : 'W';
+                const id = prefix + Math.floor(10000 + Math.random() * 90000);
+                const names = ['山田', '佐藤', '鈴木', '田中', '高橋'];
+                const name = names[Math.floor(Math.random() * names.length)];
+                const people = Math.floor(1 + Math.random() * 3);
+                
+                members.push({ id, name, people, type });
+            }
+            
+            return members;
+        }
+
+        function updateMembersList(members) {
+            const membersList = document.getElementById('membersList');
+            membersList.innerHTML = '';
+            
+            let totalPeople = 0;
+            members.forEach(member => {
+                totalPeople += member.people;
+                const badge = member.type === 'reservation' ? '予約あり' : '予約なし';
+                
+                membersList.innerHTML += `
+                    <div class="member-item">
+                        <div class="member-info">${member.id} ${member.name}さん - ${member.people}人</div>
+                        <div class="member-badge">${badge}</div>
+                    </div>
+                `;
+            });
+            
+            document.getElementById('totalPeople').textContent = `合計: ${totalPeople}人`;
+        }
+
+        function updateWaitingStatus() {
+            // ダミーデータで更新
+            document.getElementById('reservationGroups').textContent = Math.floor(3 + Math.random() * 8);
+            document.getElementById('reservationPeople').textContent = Math.floor(10 + Math.random() * 20);
+            document.getElementById('walkinGroups').textContent = Math.floor(2 + Math.random() * 6);
+            document.getElementById('walkinPeople').textContent = Math.floor(5 + Math.random() * 15);
+        }
+
+        // 定期的に待機状況を更新
+        setInterval(updateWaitingStatus, 10000);
+
+        // 実際の実装では Firestore リアルタイムリスナーを使用
+        /*
+        db.collection('current_call').doc('display').onSnapshot((doc) => {
+            const data = doc.data();
+            updateDisplay(data);
+        });
+        
+        db.collection('reservations')
+          .where('date', '==', today)
+          .where('status', '==', 'checked_in')
+          .onSnapshot((snapshot) => {
+              updateWaitingStatus(snapshot);
+          });
+        */
+    </script>
+</body>
+</html>
