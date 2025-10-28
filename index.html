@@ -3,670 +3,325 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>秘宝タン・イーと記憶の洞窟 - 予約システム</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
-            background: #ffffff;
-            color: #000000;
-            line-height: 1.6;
-        }
-
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            min-height: 100vh;
-        }
-
-        header {
-            text-align: center;
-            padding: 30px 0;
-            border-bottom: 2px solid #000000;
-            margin-bottom: 30px;
-            position: relative;
-        }
-
-        h1 {
-            font-size: 24px;
-            font-weight: 700;
-            margin-bottom: 5px;
-        }
-
-        .subtitle {
-            font-size: 14px;
-            color: #666666;
-        }
-
-        .status-card {
-            background: #f8f8f8;
-            border: 2px solid #000000;
-            padding: 30px;
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        .status-info {
-            font-size: 18px;
-            margin-bottom: 20px;
-        }
-
-        .status-number {
-            font-size: 48px;
-            font-weight: 700;
-            margin: 10px 0;
-        }
-
-        .status-label {
-            font-size: 14px;
-            color: #666666;
-        }
-
-        .button {
-            width: 100%;
-            padding: 18px;
-            font-size: 16px;
-            font-weight: 600;
-            background: #000000;
-            color: #ffffff;
-            border: none;
-            cursor: pointer;
-            margin-bottom: 15px;
-            transition: opacity 0.2s;
-        }
-
-        .button:hover {
-            opacity: 0.8;
-        }
-
-        .button.secondary {
-            background: #ffffff;
-            color: #000000;
-            border: 2px solid #000000;
-        }
-
-        .people-select {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-
-        .people-button {
-            padding: 40px;
-            font-size: 24px;
-            font-weight: 700;
-            background: #ffffff;
-            border: 2px solid #000000;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .people-button:hover {
-            background: #000000;
-            color: #ffffff;
-        }
-
-        .people-button.selected {
-            background: #000000;
-            color: #ffffff;
-        }
-
-        .notice-box {
-            background: #fff8e1;
-            border: 2px solid #000000;
-            padding: 20px;
-            margin-bottom: 30px;
-            font-size: 14px;
-            line-height: 1.8;
-        }
-
-        .notice-title {
-            font-weight: 700;
-            margin-bottom: 10px;
-            font-size: 16px;
-        }
-
-        .checkbox-container {
-            display: flex;
-            align-items: flex-start;
-            margin: 20px 0;
-            gap: 10px;
-        }
-
-        .checkbox-container input[type="checkbox"] {
-            margin-top: 4px;
-            width: 18px;
-            height: 18px;
-            cursor: pointer;
-        }
-
-        .checkbox-container label {
-            flex: 1;
-            cursor: pointer;
-            font-size: 14px;
-        }
-
-        .reservation-number {
-            font-size: 72px;
-            font-weight: 700;
-            text-align: center;
-            margin: 30px 0;
-            letter-spacing: 4px;
-        }
-
-        .success-message {
-            text-align: center;
-            font-size: 24px;
-            font-weight: 700;
-            margin-bottom: 30px;
-        }
-
-        .info-grid {
-            display: grid;
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-
-        .info-item {
-            background: #f8f8f8;
-            border: 1px solid #e0e0e0;
-            padding: 15px;
-        }
-
-        .info-item-label {
-            font-size: 12px;
-            color: #666666;
-            margin-bottom: 5px;
-        }
-
-        .info-item-value {
-            font-size: 18px;
-            font-weight: 700;
-        }
-
-        .location-box {
-            background: #000000;
-            color: #ffffff;
-            padding: 20px;
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        .location-box-title {
-            font-size: 12px;
-            margin-bottom: 5px;
-            opacity: 0.7;
-        }
-
-        .location-box-text {
-            font-size: 20px;
-            font-weight: 700;
-        }
-
-        .back-link {
-            text-align: center;
-            margin-top: 30px;
-        }
-
-        .back-link a {
-            color: #000000;
-            text-decoration: none;
-            border-bottom: 1px solid #000000;
-            padding-bottom: 2px;
-            font-size: 14px;
-        }
-
-        .promo-input-group {
-            margin-bottom: 30px;
-        }
-
-        .promo-input-group label {
-            display: block;
-            margin-bottom: 10px;
-            font-weight: 600;
-        }
-
-        .promo-input-group input,
-        .promo-input-group select {
-            width: 100%;
-            padding: 15px;
-            font-size: 16px;
-            border: 2px solid #000000;
-            background: #ffffff;
-        }
-
-        .date-time-select {
-            display: grid;
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-
-        .screen {
-            display: none;
-        }
-
-        .screen.active {
-            display: block;
-        }
-
-        @media (max-width: 480px) {
-            h1 {
-                font-size: 20px;
-            }
-
-            .status-number {
-                font-size: 36px;
-            }
-
-            .people-button {
-                padding: 30px;
-                font-size: 20px;
-            }
-
-            .reservation-number {
-                font-size: 56px;
-            }
-        }
-    </style>
+    <title>予約管理システム - 秘宝タン・イーと記憶の洞窟</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>秘宝タン・イーと記憶の洞窟</h1>
-            <p class="subtitle">サブタイトル</p>
-        </header>
-
-        <!-- 待ち状況表示画面 -->
-        <div id="statusScreen" class="screen active">
-            <div class="status-card">
-                <div class="status-info">現在の待ち組数</div>
-                <div class="status-number" id="waitingGroups">更新中</div>
-                <div class="status-label">組</div>
-                <div style="margin-top: 10px;">
-                    <div class="status-info">現在の待ち人数</div>
-                    <div class="status-number" style="font-size: 36px;" id="waitingPeople">更新中</div>
-                    <div class="status-label">人</div>
-                </div>
-                <div style="margin-top: 20px;">
-                    <div class="status-info">推定待ち時間</div>
-                    <div class="status-number" style="font-size: 36px;" id="estimatedTime">更新中</div>
-                    <div class="status-label">分</div>
-                </div>
-            </div>
-
-            <button class="button secondary" onclick="refreshStatus()">現在の待ち状況を更新</button>
-            <button class="button" onclick="showScreen('peopleScreen')">予約開始</button>
-            <button class="button secondary" id="promoLinkBtn">プロモーションコードをお持ちの方</button>
-        </div>
-
-        <!-- プロモーションコード入力画面 -->
-        <div id="promoScreen" class="screen">
-            <h2 style="margin-bottom: 30px; font-size: 20px;">プロモーションコード入力</h2>
-            
-            <div class="promo-input-group">
-                <label>プロモーションコード</label>
-                <input type="text" id="promoCodeInput" placeholder="コードを入力してください">
-            </div>
-
-            <button class="button" onclick="validatePromoCode()">確認</button>
-            <div class="back-link">
-                <a href="#" onclick="showScreen('statusScreen'); return false;">← 戻る</a>
-            </div>
-        </div>
-
-        <!-- VIP日時選択画面 -->
-        <div id="vipDateTimeScreen" class="screen">
-            <h2 style="margin-bottom: 30px; font-size: 20px;">日時を選択</h2>
-            
-            <div class="date-time-select">
-                <div class="promo-input-group">
-                    <label>日付</label>
-                    <select id="vipDate">
-                        <option value="2024-11-01">11月1日（金）</option>
-                        <option value="2024-11-02">11月2日（土）</option>
-                    </select>
-                </div>
-
-                <div class="promo-input-group">
-                    <label>希望時刻</label>
-                    <select id="vipTime">
-                        <option value="10:00">10:00</option>
-                        <option value="10:30">10:30</option>
-                        <option value="11:00">11:00</option>
-                        <option value="11:30">11:30</option>
-                        <option value="12:00">12:00</option>
-                        <option value="12:30">12:30</option>
-                        <option value="13:00">13:00</option>
-                        <option value="13:30">13:30</option>
-                        <option value="14:00">14:00</option>
-                        <option value="14:30">14:30</option>
-                        <option value="15:00">15:00</option>
-                        <option value="15:30">15:30</option>
-                        <option value="16:00">16:00</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="notice-box">
-                <div class="notice-title">⭐ 関係者枠での予約</div>
-                <p>プロモーションコードをご利用いただくと、指定された時刻に優先的にご案内いたします。</p>
-            </div>
-
-            <button class="button" onclick="showScreen('peopleScreen')">次へ</button>
-            <div class="back-link">
-                <a href="#" onclick="showScreen('promoScreen'); return false;">← 戻る</a>
-            </div>
-        </div>
-
-        <!-- 人数選択画面 -->
-        <div id="peopleScreen" class="screen">
-            <h2 style="margin-bottom: 30px; font-size: 20px;">人数を選択してください</h2>
-            
-            <div class="people-select">
-                <button class="people-button" onclick="selectPeople(1)">1人</button>
-                <button class="people-button" onclick="selectPeople(2)">2人</button>
-                <button class="people-button" onclick="selectPeople(3)">3人</button>
-                <button class="people-button" onclick="selectPeople(4)">4人</button>
-            </div>
-
-            <div id="confirmSection" style="display: none;">
-                <div class="notice-box">
-                    <div class="notice-title">ご予約内容の確認</div>
-                    <p style="font-size: 18px; font-weight: 700; margin-bottom: 15px;">
-                        <span id="selectedPeople">0</span>人
-                    </p>
-                    <p style="margin-bottom: 10px;">
-                        呼び出しまでに<strong>2棟2階の一番奥</strong>へお越しください。
-                    </p>
-                    <p style="margin-bottom: 10px;">
-                        呼出後10分経過後おいでにならない場合は他のお客様をご案内いたします。
-                    </p>
-                    <p style="margin-bottom: 10px;">
-                        30分経ってもおいでにならない場合は自動キャンセルとなります。
-                    </p>
-                    <p>
-                        3人以下でご予約の場合、他のお客様と同じグループとなり参加していただきます。
-                    </p>
-                </div>
-
-                <div class="checkbox-container">
-                    <input type="checkbox" id="agreeCheckbox">
-                    <label for="agreeCheckbox">上記の内容に同意します</label>
-                </div>
-
-                <button class="button" id="reserveButton" disabled onclick="completeReservation()">予約を確定する</button>
-            </div>
-
-            <div class="back-link">
-                <a href="#" onclick="goBack(); return false;">← 戻る</a>
-            </div>
-        </div>
-
-        <!-- 予約完了画面 -->
-        <div id="completeScreen" class="screen">
-            <div class="success-message">予約が完了しました</div>
-
-            <div class="reservation-number" id="reservationNumber">A1234</div>
-
-            <div class="info-grid">
-                <div class="info-item" id="remainingGroupsItem">
-                    <div class="info-item-label">あと</div>
-                    <div class="info-item-value"><span id="remainingGroups">8</span> 組</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-item-label" id="timeLabel">推定待ち時間</div>
-                    <div class="info-item-value"><span id="estimatedTime2">30</span> <span id="timeUnit">分</span></div>
-                </div>
-            </div>
-
-            <button class="button secondary" onclick="updateWaitingInfo()">待ち状況を更新</button>
-
-            <div class="location-box">
-                <div class="location-box-title">場所</div>
-                <div class="location-box-text">2101（2棟1階の奥から2番目の教室）</div>
-            </div>
-
-            <div class="notice-box">
-                <div class="notice-title">ご来場について</div>
-                <p>到着されましたら、サイネージにあなたの番号が表示されるまで壁際でお待ちください。</p>
-                <p style="margin-top: 10px;">呼び出しから10分経過後、お越しにならない場合は次のお客様をご案内いたします。</p>
-            </div>
-
-            <div class="back-link" style="margin-top: 50px;">
-                <a href="#" onclick="showScreen('statusScreen'); resetForm(); return false;">トップページに戻る</a>
+    <!-- ログイン画面 -->
+    <div id="loginScreen" class="screen active">
+        <div class="login-container">
+            <h1>管理画面ログイン</h1>
+            <div class="login-form">
+                <input type="password" id="passwordInput" placeholder="パスワードを入力">
+                <button onclick="login()" class="btn-primary">ログイン</button>
+                <div id="loginError" class="error-message"></div>
             </div>
         </div>
     </div>
 
-    <script>
-        // API Base URL
-        const API_BASE_URL = 'https://kunugida-reservation-api-pv3b3g64na-an.a.run.app';
-        
-        let selectedPeopleCount = 0;
-        let isVipReservation = false;
-        let currentPromoCode = '';
-        let currentReservationId = '';
+    <!-- メイン管理画面 -->
+    <div id="mainScreen" class="screen">
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h2>管理システム</h2>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="#" onclick="showTab('dashboard')" class="nav-item active" data-tab="dashboard">
+                    <span class="nav-icon">📊</span> ダッシュボード
+                </a></li>
+                <li><a href="#" onclick="showTab('reservations')" class="nav-item" data-tab="reservations">
+                    <span class="nav-icon">📋</span> 予約一覧
+                </a></li>
+                <li><a href="#" onclick="showTab('create')" class="nav-item" data-tab="create">
+                    <span class="nav-icon">➕</span> 予約発行
+                </a></li>
+                <li><a href="#" onclick="showTab('stats')" class="nav-item" data-tab="stats">
+                    <span class="nav-icon">📈</span> 統計情報
+                </a></li>
+                <li><a href="#" onclick="showTab('settings')" class="nav-item" data-tab="settings">
+                    <span class="nav-icon">⚙️</span> 設定
+                </a></li>
+            </ul>
+            <div class="sidebar-footer">
+                <button onclick="logout()" class="btn-secondary">ログアウト</button>
+            </div>
+        </nav>
 
-        function showScreen(screenId) {
-            document.querySelectorAll('.screen').forEach(screen => {
-                screen.classList.remove('active');
-            });
-            document.getElementById(screenId).classList.add('active');
-        }
+        <main class="main-content">
+            <!-- ダッシュボード -->
+            <div id="dashboardTab" class="tab-content active">
+                <div class="page-header">
+                    <h1>ダッシュボード</h1>
+                    <div class="current-time" id="currentTime"></div>
+                </div>
 
-        async function refreshStatus() {
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/status`);
-                const data = await response.json();
+                <!-- 営業終了メッセージ -->
+                <div id="closedMessage" class="closed-message" style="display: none;">
+                    <h2>お疲れ様でした</h2>
+                    <p>営業は終了しました</p>
+                </div>
+
+                <!-- 現在呼び出し中のGROUP -->
+                <div id="currentGroupCard" class="current-group-card">
+                    <div class="card-header">
+                        <h2>現在呼び出し中</h2>
+                        <button onclick="callNextGroup()" class="btn-primary btn-large">次のGROUPを呼び出す</button>
+                    </div>
+                    <div class="current-group-display">
+                        <div class="group-number" id="currentGroupNumber">-</div>
+                        <div class="reservation-list" id="currentReservations">
+                            <p class="text-muted">呼び出し待機中</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 次に呼び出す予約 -->
+                <div class="next-groups-container">
+                    <div class="next-group-card">
+                        <h3>次の予約済み (A/B)</h3>
+                        <div id="nextReserved" class="reservation-queue">
+                            <p class="text-muted">データ読み込み中...</p>
+                        </div>
+                    </div>
+                    <div class="next-group-card">
+                        <h3>次の当日来店 (C/D)</h3>
+                        <div id="nextWalkIn" class="reservation-queue">
+                            <p class="text-muted">データ読み込み中...</p>
+                        </div>
+                    </div>
+                    <div class="next-group-card">
+                        <h3>次の関係者 (X/Y)</h3>
+                        <div id="nextVip" class="reservation-queue">
+                            <p class="text-muted">データ読み込み中...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 呼び出し済み・来なかった予約 -->
+                <div class="called-section">
+                    <h3>呼び出し済み・来なかった予約</h3>
+                    <div id="calledReservations" class="called-list">
+                        <p class="text-muted">データ読み込み中...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 予約一覧タブ -->
+            <div id="reservationsTab" class="tab-content">
+                <div class="page-header">
+                    <h1>予約一覧</h1>
+                </div>
                 
-                if (data.display) {
-                    document.getElementById('waitingGroups').textContent = data.waiting_groups;
-                    document.getElementById('waitingPeople').textContent = data.waiting_people || 0;
-                    document.getElementById('estimatedTime').textContent = `約${data.estimated_time}`;
-                } else {
-                    document.getElementById('waitingGroups').textContent = '—';
-                    document.getElementById('waitingPeople').textContent = '—';
-                    document.getElementById('estimatedTime').textContent = '—';
-                }
-            } catch (error) {
-                console.error('Error refreshing status:', error);
-            }
-        }
+                <div class="search-bar">
+                    <input type="text" id="searchInput" placeholder="予約番号で検索..." oninput="searchReservations()">
+                    <select id="statusFilter" onchange="filterReservations()">
+                        <option value="all">全てのステータス</option>
+                        <option value="0">予約受付</option>
+                        <option value="1">来店済み</option>
+                        <option value="2">キャンセル</option>
+                    </select>
+                    <select id="typeFilter" onchange="filterReservations()">
+                        <option value="all">全てのタイプ</option>
+                        <option value="A">A (11/1 予約)</option>
+                        <option value="B">B (11/2 予約)</option>
+                        <option value="C">C (11/1 当日)</option>
+                        <option value="D">D (11/2 当日)</option>
+                        <option value="X">X (11/1 関係者)</option>
+                        <option value="Y">Y (11/2 関係者)</option>
+                    </select>
+                </div>
 
-        // ページロード時に待ち状況を取得
-        window.addEventListener('DOMContentLoaded', refreshStatus);
+                <div class="table-container">
+                    <table class="reservations-table">
+                        <thead>
+                            <tr>
+                                <th>予約番号</th>
+                                <th>タイプ</th>
+                                <th>人数</th>
+                                <th>GROUP</th>
+                                <th>時間</th>
+                                <th>ステータス</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reservationsTableBody">
+                            <tr>
+                                <td colspan="7" class="text-center text-muted">データ読み込み中...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
 
-        function selectPeople(count) {
-            selectedPeopleCount = count;
-            
-            document.querySelectorAll('.people-button').forEach(btn => {
-                btn.classList.remove('selected');
-            });
-            event.target.classList.add('selected');
+            <!-- 予約発行タブ -->
+            <div id="createTab" class="tab-content">
+                <div class="page-header">
+                    <h1>予約発行</h1>
+                </div>
 
-            document.getElementById('selectedPeople').textContent = count;
-            document.getElementById('confirmSection').style.display = 'block';
-        }
+                <div class="create-forms">
+                    <!-- 当日予約発行 -->
+                    <div class="form-card">
+                        <h3>当日予約発行 (C/D)</h3>
+                        <div class="form-group">
+                            <label>人数</label>
+                            <select id="walkInCount">
+                                <option value="1">1人</option>
+                                <option value="2">2人</option>
+                                <option value="3">3人</option>
+                                <option value="4">4人</option>
+                            </select>
+                        </div>
+                        <button onclick="createWalkInReservation()" class="btn-primary">当日予約を発行</button>
+                    </div>
 
-        document.getElementById('agreeCheckbox').addEventListener('change', function() {
-            document.getElementById('reserveButton').disabled = !this.checked;
-        });
+                    <!-- 関係者予約発行 -->
+                    <div class="form-card">
+                        <h3>関係者予約発行 (X/Y)</h3>
+                        <div class="form-group">
+                            <label>日付</label>
+                            <select id="vipDate">
+                                <option value="2025-11-01">11月1日</option>
+                                <option value="2025-11-02">11月2日</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>時間（HH:MM）</label>
+                            <input type="time" id="vipTime" min="10:00" max="15:00">
+                        </div>
+                        <div class="form-group">
+                            <label>人数</label>
+                            <select id="vipCount">
+                                <option value="1">1人</option>
+                                <option value="2">2人</option>
+                                <option value="3">3人</option>
+                                <option value="4">4人</option>
+                            </select>
+                        </div>
+                        <button onclick="createVipReservation()" class="btn-primary">関係者予約を発行</button>
+                    </div>
+                </div>
 
-        async function completeReservation() {
-            if (selectedPeopleCount === 0) {
-                alert('人数を選択してください');
-                return;
-            }
+                <div id="createResult" class="result-message"></div>
+            </div>
 
-            try {
-                const requestData = {
-                    count: selectedPeopleCount
-                };
+            <!-- 統計情報タブ -->
+            <div id="statsTab" class="tab-content">
+                <div class="page-header">
+                    <h1>統計情報</h1>
+                </div>
 
-                // VIP予約の場合
-                if (isVipReservation && currentPromoCode) {
-                    requestData.promo_code = currentPromoCode;
-                    requestData.date = document.getElementById('vipDate').value;
-                    requestData.time = document.getElementById('vipTime').value;
-                }
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">総予約数</div>
+                        <div class="stat-value" id="totalReservations">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">来店済み</div>
+                        <div class="stat-value" id="completedReservations">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">キャンセル</div>
+                        <div class="stat-value" id="cancelledReservations">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">待機中</div>
+                        <div class="stat-value" id="waitingReservations">0</div>
+                    </div>
+                </div>
 
-                const response = await fetch(`${API_BASE_URL}/api/reservations`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(requestData)
-                });
+                <div class="chart-container">
+                    <h3>タイプ別予約数</h3>
+                    <canvas id="typeChart"></canvas>
+                </div>
 
-                const data = await response.json();
+                <div class="chart-container">
+                    <h3>ステータス別予約数</h3>
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
 
-                if (response.ok) {
-                    currentReservationId = data.reservation_id;
-                    document.getElementById('reservationNumber').textContent = data.reservation_id;
+            <!-- 設定タブ -->
+            <div id="settingsTab" class="tab-content">
+                <div class="page-header">
+                    <h1>設定</h1>
+                </div>
 
-                    if (data.is_priority) {
-                        // VIP予約の場合
-                        document.getElementById('remainingGroupsItem').style.display = 'none';
-                        document.getElementById('timeLabel').textContent = '予約時間';
-                        document.getElementById('estimatedTime2').textContent = data.time;
-                        document.getElementById('timeUnit').textContent = '';
-                    } else {
-                        // 通常予約の場合
-                        document.getElementById('remainingGroupsItem').style.display = 'block';
-                        document.getElementById('timeLabel').textContent = '推定待ち時間';
-                        document.getElementById('remainingGroups').textContent = data.waiting_groups;
-                        document.getElementById('estimatedTime2').textContent = `約${data.estimated_time}`;
-                        document.getElementById('timeUnit').textContent = '分';
-                    }
+                <div class="settings-grid">
+                    <div class="setting-card">
+                        <h3>予約受付設定</h3>
+                        <div class="setting-item">
+                            <label class="switch">
+                                <input type="checkbox" id="receptionToggle" onchange="updateSetting('reception')">
+                                <span class="slider"></span>
+                            </label>
+                            <span>予約受付</span>
+                        </div>
+                        <p class="setting-description">ONにすると予約を受け付けます</p>
+                    </div>
 
-                    showScreen('completeScreen');
-                } else {
-                    alert(data.error || '予約に失敗しました');
-                }
-            } catch (error) {
-                console.error('Error creating reservation:', error);
-                alert('予約の作成に失敗しました');
-            }
-        }
+                    <div class="setting-card">
+                        <h3>待ち状況表示設定</h3>
+                        <div class="setting-item">
+                            <label class="switch">
+                                <input type="checkbox" id="joukyouToggle" onchange="updateSetting('joukyou')">
+                                <span class="slider"></span>
+                            </label>
+                            <span>待ち状況表示</span>
+                        </div>
+                        <p class="setting-description">ONにすると待ち状況が表示されます</p>
+                    </div>
 
-        async function updateWaitingInfo() {
-            if (!currentReservationId) {
-                return;
-            }
+                    <div class="setting-card">
+                        <h3>自動受付停止設定</h3>
+                        <div class="setting-item">
+                            <label class="switch">
+                                <input type="checkbox" id="jidouToggle" onchange="updateSetting('jidou')">
+                                <span class="slider"></span>
+                            </label>
+                            <span>自動受付停止</span>
+                        </div>
+                        <p class="setting-description">営業時間を超える予約を自動で停止します</p>
+                    </div>
+                </div>
 
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/reservations/${currentReservationId}`);
-                const data = await response.json();
+                <div class="setting-card">
+                    <h3>現在のステータス</h3>
+                    <div class="status-info" id="settingsStatus">
+                        <p>データ読み込み中...</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
 
-                if (response.ok) {
-                    if (data.is_priority) {
-                        document.getElementById('remainingGroupsItem').style.display = 'none';
-                        document.getElementById('timeLabel').textContent = '予約時間';
-                        document.getElementById('estimatedTime2').textContent = data.time;
-                        document.getElementById('timeUnit').textContent = '';
-                    } else {
-                        document.getElementById('remainingGroupsItem').style.display = 'block';
-                        document.getElementById('timeLabel').textContent = '推定待ち時間';
-                        document.getElementById('remainingGroups').textContent = data.waiting_groups;
-                        document.getElementById('estimatedTime2').textContent = `約${data.estimated_time}`;
-                        document.getElementById('timeUnit').textContent = '分';
-                    }
-                }
-            } catch (error) {
-                console.error('Error updating waiting info:', error);
-            }
-        }
+    <!-- モーダル：予約詳細 -->
+    <div id="reservationModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2>予約詳細</h2>
+            <div id="modalContent"></div>
+            <div class="modal-actions">
+                <button onclick="updateReservationStatus('completed')" class="btn-success">来店済みにする</button>
+                <button onclick="updateReservationStatus('cancelled')" class="btn-danger">キャンセル</button>
+                <button onclick="closeModal()" class="btn-secondary">閉じる</button>
+            </div>
+        </div>
+    </div>
 
-        function resetForm() {
-            selectedPeopleCount = 0;
-            isVipReservation = false;
-            currentPromoCode = '';
-            currentReservationId = '';
-            document.querySelectorAll('.people-button').forEach(btn => {
-                btn.classList.remove('selected');
-            });
-            document.getElementById('confirmSection').style.display = 'none';
-            document.getElementById('agreeCheckbox').checked = false;
-            document.getElementById('reserveButton').disabled = true;
-            document.getElementById('promoCodeInput').value = '';
-        }
+    <!-- モーダル：GROUP呼び出し -->
+    <div id="groupCallModal" class="modal">
+        <div class="modal-content">
+            <h2 id="groupCallTitle">GROUP 1 の呼び出し</h2>
+            <div id="groupCallContent" class="group-call-content"></div>
+            <div class="modal-actions">
+                <button onclick="confirmGroupCall()" class="btn-primary btn-large">全員呼び出し完了</button>
+                <button onclick="closeGroupCallModal()" class="btn-secondary">キャンセル</button>
+            </div>
+        </div>
+    </div>
 
-        document.getElementById('promoLinkBtn').addEventListener('click', function() {
-            showScreen('promoScreen');
-        });
-
-        async function validatePromoCode() {
-            const code = document.getElementById('promoCodeInput').value.trim();
-            if (code === '') {
-                alert('プロモーションコードを入力してください');
-                return;
-            }
-            
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/promo/validate`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ code: code })
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok && data.valid) {
-                    currentPromoCode = code;
-                    isVipReservation = true;
-                    
-                    await loadAvailableSlots();
-                    showScreen('vipDateTimeScreen');
-                } else {
-                    alert(data.message || '有効なプロモーションコードを入力してください');
-                }
-            } catch (error) {
-                console.error('Error validating promo code:', error);
-                alert('プロモーションコードの検証に失敗しました');
-            }
-        }
-
-        async function loadAvailableSlots() {
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/vip/available-slots`);
-                const data = await response.json();
-                
-                const dateSelect = document.getElementById('vipDate');
-                dateSelect.innerHTML = '';
-                
-                if (data.dates && data.dates.length > 0) {
-                    data.dates.forEach(date => {
-                        const option = document.createElement('option');
-                        option.value = date.date;
-                        option.textContent = date.label;
-                        dateSelect.appendChild(option);
-                    });
-                } else {
-                    alert('現在予約可能な日時がありません');
-                    showScreen('statusScreen');
-                }
-            } catch (error) {
-                console.error('Error loading available slots:', error);
-                alert('日時情報の取得に失敗しました');
-            }
-        }
-
-        function goBack() {
-            if (isVipReservation) {
-                showScreen('vipDateTimeScreen');
-            } else {
-                showScreen('statusScreen');
-            }
-        }
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
