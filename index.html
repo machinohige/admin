@@ -10,118 +10,119 @@
     <!-- ログイン画面 -->
     <div id="loginScreen" class="screen active">
         <div class="login-container">
-            <h1>管理画面ログイン</h1>
-            <div class="login-form">
-                <input type="password" id="passwordInput" placeholder="パスワードを入力">
-                <button onclick="login()" class="btn-primary">ログイン</button>
-                <div id="loginError" class="error-message"></div>
-            </div>
+            <h1>予約管理システム</h1>
+            <p class="subtitle">秘宝タン・イーと記憶の洞窟</p>
+            <form id="loginForm" onsubmit="return false;">
+                <input type="password" id="passwordInput" placeholder="パスワードを入力" autocomplete="current-password">
+                <button type="submit" onclick="login()">ログイン</button>
+                <div id="loginError" class="error-message" style="display: none;">パスワードが正しくありません</div>
+            </form>
         </div>
     </div>
 
     <!-- メイン管理画面 -->
     <div id="mainScreen" class="screen">
-        <nav class="sidebar">
-            <div class="sidebar-header">
-                <h2>管理システム</h2>
+        <div class="header">
+            <h1>予約管理システム</h1>
+            <div class="header-info">
+                <span id="currentDate"></span>
+                <span id="lastUpdate"></span>
+                <button onclick="logout()" class="logout-btn">ログアウト</button>
             </div>
-            <ul class="nav-menu">
-                <li><a href="#" onclick="showTab('dashboard')" class="nav-item active" data-tab="dashboard">
-                    <span class="nav-icon">📊</span> ダッシュボード
-                </a></li>
-                <li><a href="#" onclick="showTab('reservations')" class="nav-item" data-tab="reservations">
-                    <span class="nav-icon">📋</span> 予約一覧
-                </a></li>
-                <li><a href="#" onclick="showTab('create')" class="nav-item" data-tab="create">
-                    <span class="nav-icon">➕</span> 予約発行
-                </a></li>
-                <li><a href="#" onclick="showTab('stats')" class="nav-item" data-tab="stats">
-                    <span class="nav-icon">📈</span> 統計情報
-                </a></li>
-                <li><a href="#" onclick="showTab('settings')" class="nav-item" data-tab="settings">
-                    <span class="nav-icon">⚙️</span> 設定
-                </a></li>
-            </ul>
-            <div class="sidebar-footer">
-                <button onclick="logout()" class="btn-secondary">ログアウト</button>
-            </div>
-        </nav>
+        </div>
 
-        <main class="main-content">
-            <!-- ダッシュボード -->
-            <div id="dashboardTab" class="tab-content active">
-                <div class="page-header">
-                    <h1>ダッシュボード</h1>
-                    <div class="current-time" id="currentTime"></div>
-                </div>
+        <!-- タブナビゲーション -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('dashboard')">ダッシュボード</button>
+            <button class="tab-btn" onclick="switchTab('reservations')">予約一覧</button>
+            <button class="tab-btn" onclick="switchTab('newReservation')">予約発行</button>
+            <button class="tab-btn" onclick="switchTab('statistics')">統計情報</button>
+            <button class="tab-btn" onclick="switchTab('settings')">設定</button>
+        </div>
 
-                <!-- 営業終了メッセージ -->
-                <div id="closedMessage" class="closed-message" style="display: none;">
-                    <h2>お疲れ様でした</h2>
-                    <p>営業は終了しました</p>
-                </div>
+        <!-- 終了メッセージ -->
+        <div id="closedMessage" class="closed-message" style="display: none;">
+            <h2>お疲れ様でした。</h2>
+            <p>2025年11月2日 17:00をもって営業を終了しました。</p>
+        </div>
 
-                <!-- 現在呼び出し中のGROUP -->
-                <div id="currentGroupCard" class="current-group-card">
-                    <div class="card-header">
-                        <h2>現在呼び出し中</h2>
-                        <button onclick="callNextGroup()" class="btn-primary btn-large">次のGROUPを呼び出す</button>
+        <!-- ダッシュボードタブ -->
+        <div id="dashboardTab" class="tab-content active">
+            <div class="dashboard-grid">
+                <!-- 次に呼び出すグループ -->
+                <div class="card primary-card">
+                    <h2>次に呼び出すグループ</h2>
+                    <div class="next-group">
+                        <div class="group-number">GROUP <span id="nextGroupNumber">-</span></div>
+                        <div class="group-reservations" id="nextGroupReservations">
+                            読み込み中...
+                        </div>
+                        <button class="btn btn-primary" id="callGroupBtn" onclick="callNextGroup()" disabled>
+                            このグループを呼び出す
+                        </button>
                     </div>
-                    <div class="current-group-display">
-                        <div class="group-number" id="currentGroupNumber">-</div>
-                        <div class="reservation-list" id="currentReservations">
-                            <p class="text-muted">呼び出し待機中</p>
+                </div>
+
+                <!-- 呼び出し中のグループ -->
+                <div class="card" id="callingGroupCard" style="display: none;">
+                    <h2>呼び出し中のグループ</h2>
+                    <div class="calling-group">
+                        <div class="group-number small">GROUP <span id="callingGroupNumber">-</span></div>
+                        <div id="callingGroupReservations" class="reservation-items">
+                            <!-- 動的に生成 -->
                         </div>
                     </div>
                 </div>
 
-                <!-- 次に呼び出す予約 -->
-                <div class="next-groups-container">
-                    <div class="next-group-card">
-                        <h3>次の予約済み (A/B)</h3>
-                        <div id="nextReserved" class="reservation-queue">
-                            <p class="text-muted">データ読み込み中...</p>
+                <!-- 次の予約リスト -->
+                <div class="card">
+                    <h2>次に呼び出す予約</h2>
+                    <div class="upcoming-lists">
+                        <div class="upcoming-section">
+                            <h3>📋 予約済み (A/B)</h3>
+                            <div id="upcomingReserved" class="reservation-list">
+                                <p class="empty-state">予約なし</p>
+                            </div>
                         </div>
-                    </div>
-                    <div class="next-group-card">
-                        <h3>次の当日来店 (C/D)</h3>
-                        <div id="nextWalkIn" class="reservation-queue">
-                            <p class="text-muted">データ読み込み中...</p>
+                        <div class="upcoming-section">
+                            <h3>🚶 当日来店 (C/D)</h3>
+                            <div id="upcomingWalkIn" class="reservation-list">
+                                <p class="empty-state">予約なし</p>
+                            </div>
                         </div>
-                    </div>
-                    <div class="next-group-card">
-                        <h3>次の関係者 (X/Y)</h3>
-                        <div id="nextVip" class="reservation-queue">
-                            <p class="text-muted">データ読み込み中...</p>
+                        <div class="upcoming-section">
+                            <h3>⭐ 関係者 (X/Y)</h3>
+                            <div id="upcomingVip" class="reservation-list">
+                                <p class="empty-state">予約なし</p>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- 呼び出し済み・来なかった予約 -->
-                <div class="called-section">
-                    <h3>呼び出し済み・来なかった予約</h3>
-                    <div id="calledReservations" class="called-list">
-                        <p class="text-muted">データ読み込み中...</p>
+                <div class="card">
+                    <h2>呼び出し済み・未来店</h2>
+                    <div id="calledNoShow" class="called-list">
+                        <p class="empty-state">該当なし</p>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- 予約一覧タブ -->
-            <div id="reservationsTab" class="tab-content">
-                <div class="page-header">
-                    <h1>予約一覧</h1>
-                </div>
-                
+        <!-- 予約一覧タブ -->
+        <div id="reservationsTab" class="tab-content">
+            <div class="card">
+                <h2>予約検索・管理</h2>
                 <div class="search-bar">
-                    <input type="text" id="searchInput" placeholder="予約番号で検索..." oninput="searchReservations()">
-                    <select id="statusFilter" onchange="filterReservations()">
-                        <option value="all">全てのステータス</option>
+                    <input type="text" id="searchInput" placeholder="予約番号で検索...">
+                    <select id="statusFilter">
+                        <option value="">全てのステータス</option>
                         <option value="0">予約受付</option>
                         <option value="1">来店済み</option>
-                        <option value="2">キャンセル</option>
+                        <option value="2">キャンセル済み</option>
                     </select>
-                    <select id="typeFilter" onchange="filterReservations()">
-                        <option value="all">全てのタイプ</option>
+                    <select id="typeFilter">
+                        <option value="">全てのタイプ</option>
                         <option value="A">A (11/1 予約)</option>
                         <option value="B">B (11/2 予約)</option>
                         <option value="C">C (11/1 当日)</option>
@@ -129,194 +130,177 @@
                         <option value="X">X (11/1 関係者)</option>
                         <option value="Y">Y (11/2 関係者)</option>
                     </select>
+                    <button onclick="searchReservations()" class="btn">検索</button>
                 </div>
 
                 <div class="table-container">
-                    <table class="reservations-table">
+                    <table id="reservationsTable">
                         <thead>
                             <tr>
                                 <th>予約番号</th>
                                 <th>タイプ</th>
                                 <th>人数</th>
-                                <th>GROUP</th>
+                                <th>グループ</th>
                                 <th>時間</th>
                                 <th>ステータス</th>
+                                <th>作成日時</th>
                                 <th>操作</th>
                             </tr>
                         </thead>
                         <tbody id="reservationsTableBody">
                             <tr>
-                                <td colspan="7" class="text-center text-muted">データ読み込み中...</td>
+                                <td colspan="8" class="empty-state">読み込み中...</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
             </div>
+        </div>
 
-            <!-- 予約発行タブ -->
-            <div id="createTab" class="tab-content">
-                <div class="page-header">
-                    <h1>予約発行</h1>
-                </div>
-
-                <div class="create-forms">
-                    <!-- 当日予約発行 -->
-                    <div class="form-card">
-                        <h3>当日予約発行 (C/D)</h3>
-                        <div class="form-group">
-                            <label>人数</label>
-                            <select id="walkInCount">
-                                <option value="1">1人</option>
-                                <option value="2">2人</option>
-                                <option value="3">3人</option>
-                                <option value="4">4人</option>
-                            </select>
-                        </div>
-                        <button onclick="createWalkInReservation()" class="btn-primary">当日予約を発行</button>
+        <!-- 予約発行タブ -->
+        <div id="newReservationTab" class="tab-content">
+            <div class="card">
+                <h2>新規予約発行</h2>
+                <form id="newReservationForm" class="form-grid">
+                    <div class="form-group">
+                        <label>予約タイプ</label>
+                        <select id="newResType" required onchange="toggleTimeInput()">
+                            <option value="">選択してください</option>
+                            <option value="C">当日来店 (C - 11/1)</option>
+                            <option value="D">当日来店 (D - 11/2)</option>
+                            <option value="X">関係者 (X - 11/1)</option>
+                            <option value="Y">関係者 (Y - 11/2)</option>
+                        </select>
                     </div>
 
-                    <!-- 関係者予約発行 -->
-                    <div class="form-card">
-                        <h3>関係者予約発行 (X/Y)</h3>
-                        <div class="form-group">
-                            <label>日付</label>
-                            <select id="vipDate">
-                                <option value="2025-11-01">11月1日</option>
-                                <option value="2025-11-02">11月2日</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>時間（HH:MM）</label>
-                            <input type="time" id="vipTime" min="10:00" max="15:00">
-                        </div>
-                        <div class="form-group">
-                            <label>人数</label>
-                            <select id="vipCount">
-                                <option value="1">1人</option>
-                                <option value="2">2人</option>
-                                <option value="3">3人</option>
-                                <option value="4">4人</option>
-                            </select>
-                        </div>
-                        <button onclick="createVipReservation()" class="btn-primary">関係者予約を発行</button>
+                    <div class="form-group">
+                        <label>人数</label>
+                        <select id="newResCount" required>
+                            <option value="">選択してください</option>
+                            <option value="1">1人</option>
+                            <option value="2">2人</option>
+                            <option value="3">3人</option>
+                            <option value="4">4人</option>
+                        </select>
                     </div>
-                </div>
 
-                <div id="createResult" class="result-message"></div>
+                    <div class="form-group" id="timeInputGroup" style="display: none;">
+                        <label>指定時刻 (関係者のみ)</label>
+                        <input type="time" id="newResTime" step="60">
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" onclick="createManualReservation()" class="btn btn-primary">
+                            予約を発行
+                        </button>
+                    </div>
+                </form>
+
+                <div id="newResSuccess" class="success-message" style="display: none;">
+                    予約が発行されました: <strong id="newResNumber"></strong>
+                </div>
+                <div id="newResError" class="error-message" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- 統計情報タブ -->
+        <div id="statisticsTab" class="tab-content">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>本日の予約数</h3>
+                    <div class="stat-number" id="statTotalReservations">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>来店済み</h3>
+                    <div class="stat-number" id="statVisited">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>キャンセル</h3>
+                    <div class="stat-number" id="statCancelled">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>待ち人数</h3>
+                    <div class="stat-number" id="statWaiting">0</div>
+                </div>
             </div>
 
-            <!-- 統計情報タブ -->
-            <div id="statsTab" class="tab-content">
-                <div class="page-header">
-                    <h1>統計情報</h1>
-                </div>
-
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-label">総予約数</div>
-                        <div class="stat-value" id="totalReservations">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">来店済み</div>
-                        <div class="stat-value" id="completedReservations">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">キャンセル</div>
-                        <div class="stat-value" id="cancelledReservations">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">待機中</div>
-                        <div class="stat-value" id="waitingReservations">0</div>
-                    </div>
-                </div>
-
+            <div class="card">
+                <h2>予約タイプ別統計</h2>
                 <div class="chart-container">
-                    <h3>タイプ別予約数</h3>
                     <canvas id="typeChart"></canvas>
                 </div>
+            </div>
 
+            <div class="card">
+                <h2>時間別来店状況</h2>
                 <div class="chart-container">
-                    <h3>ステータス別予約数</h3>
-                    <canvas id="statusChart"></canvas>
+                    <canvas id="timeChart"></canvas>
                 </div>
             </div>
+        </div>
 
-            <!-- 設定タブ -->
-            <div id="settingsTab" class="tab-content">
-                <div class="page-header">
-                    <h1>設定</h1>
-                </div>
-
-                <div class="settings-grid">
-                    <div class="setting-card">
-                        <h3>予約受付設定</h3>
-                        <div class="setting-item">
-                            <label class="switch">
-                                <input type="checkbox" id="receptionToggle" onchange="updateSetting('reception')">
-                                <span class="slider"></span>
-                            </label>
-                            <span>予約受付</span>
+        <!-- 設定タブ -->
+        <div id="settingsTab" class="tab-content">
+            <div class="card">
+                <h2>システム設定</h2>
+                <div class="settings-section">
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3>予約受付</h3>
+                            <p>Webサイトからの予約受付を制御します</p>
                         </div>
-                        <p class="setting-description">ONにすると予約を受け付けます</p>
+                        <label class="toggle">
+                            <input type="checkbox" id="settingReception" onchange="updateSetting('reception')">
+                            <span class="toggle-slider"></span>
+                        </label>
                     </div>
 
-                    <div class="setting-card">
-                        <h3>待ち状況表示設定</h3>
-                        <div class="setting-item">
-                            <label class="switch">
-                                <input type="checkbox" id="joukyouToggle" onchange="updateSetting('joukyou')">
-                                <span class="slider"></span>
-                            </label>
-                            <span>待ち状況表示</span>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3>待ち状況表示</h3>
+                            <p>Webサイトでの待ち状況表示を制御します</p>
                         </div>
-                        <p class="setting-description">ONにすると待ち状況が表示されます</p>
+                        <label class="toggle">
+                            <input type="checkbox" id="settingJoukyou" onchange="updateSetting('joukyou')">
+                            <span class="toggle-slider"></span>
+                        </label>
                     </div>
 
-                    <div class="setting-card">
-                        <h3>自動受付停止設定</h3>
-                        <div class="setting-item">
-                            <label class="switch">
-                                <input type="checkbox" id="jidouToggle" onchange="updateSetting('jidou')">
-                                <span class="slider"></span>
-                            </label>
-                            <span>自動受付停止</span>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3>自動受付停止</h3>
+                            <p>営業時間を考慮して自動的に予約受付を停止します</p>
                         </div>
-                        <p class="setting-description">営業時間を超える予約を自動で停止します</p>
+                        <label class="toggle">
+                            <input type="checkbox" id="settingJidou" onchange="updateSetting('jidou')">
+                            <span class="toggle-slider"></span>
+                        </label>
                     </div>
                 </div>
 
-                <div class="setting-card">
-                    <h3>現在のステータス</h3>
-                    <div class="status-info" id="settingsStatus">
-                        <p>データ読み込み中...</p>
-                    </div>
+                <div class="settings-info">
+                    <h3>営業情報</h3>
+                    <ul>
+                        <li>営業日: 2025年11月1日〜2日</li>
+                        <li>営業時間: 10:00〜15:00</li>
+                        <li>1グループあたりの所要時間: 約7分</li>
+                    </ul>
                 </div>
-            </div>
-        </main>
-    </div>
-
-    <!-- モーダル：予約詳細 -->
-    <div id="reservationModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <h2>予約詳細</h2>
-            <div id="modalContent"></div>
-            <div class="modal-actions">
-                <button onclick="updateReservationStatus('completed')" class="btn-success">来店済みにする</button>
-                <button onclick="updateReservationStatus('cancelled')" class="btn-danger">キャンセル</button>
-                <button onclick="closeModal()" class="btn-secondary">閉じる</button>
             </div>
         </div>
     </div>
 
-    <!-- モーダル：GROUP呼び出し -->
-    <div id="groupCallModal" class="modal">
+    <!-- モーダル: 予約詳細 -->
+    <div id="reservationModal" class="modal">
         <div class="modal-content">
-            <h2 id="groupCallTitle">GROUP 1 の呼び出し</h2>
-            <div id="groupCallContent" class="group-call-content"></div>
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2>予約詳細</h2>
+            <div id="modalContent">
+                <!-- 動的に生成 -->
+            </div>
             <div class="modal-actions">
-                <button onclick="confirmGroupCall()" class="btn-primary btn-large">全員呼び出し完了</button>
-                <button onclick="closeGroupCallModal()" class="btn-secondary">キャンセル</button>
+                <button onclick="cancelReservation()" class="btn btn-danger">キャンセル</button>
+                <button onclick="closeModal()" class="btn">閉じる</button>
             </div>
         </div>
     </div>
