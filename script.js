@@ -1,5 +1,5 @@
 // グローバル変数
-const API_BASE_URL = 'https://kunugida-reservation-api-pv3b3g64na-an.a.run.app';
+const API_BASE_URL = 'https://kunugida-reservation-admin-api-656964915225.asia-northeast1.run.app';
 let authToken = null;
 let currentTab = 'dashboard';
 let currentDate = null;
