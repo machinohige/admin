@@ -1,5 +1,5 @@
 // グローバル変数
-const API_BASE_URL = 'https://kunugida-reservation-admin-api-656964915225.asia-northeast1.run.app';
+const API_BASE_URL = 'https://kunugida-reservation-admin-api-pv3b3g64na-an.a.run.app';
 let authToken = null;
 let currentTab = 'dashboard';
 let currentDate = null;
@@ -166,14 +166,28 @@ async function loadDashboard() {
             }
         });
         
+        // レスポンスのContent-Typeを確認
+        const contentType = response.headers.get('content-type');
+        
+        if (!contentType || !contentType.includes('application/json')) {
+            console.error('Expected JSON but got:', contentType);
+            const text = await response.text();
+            console.error('Response body:', text.substring(0, 500));
+            throw new Error('APIがJSONではなくHTMLを返しています。バックエンドのログを確認してください。');
+        }
+        
         const data = await response.json();
         
         if (response.ok) {
             updateDashboard(data);
             updateLastUpdateTime();
+        } else {
+            console.error('Dashboard API error:', data);
+            alert(`ダッシュボードの読み込みに失敗しました: ${data.error || 'Unknown error'}`);
         }
     } catch (error) {
         console.error('Error loading dashboard:', error);
+        alert(`ダッシュボードの読み込みに失敗しました: ${error.message}\n\nバックエンドのログを確認してください。`);
     }
 }
 
