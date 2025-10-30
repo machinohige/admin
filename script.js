@@ -9,8 +9,11 @@ let selectedReservationId = null;
 
 // 初期化
 document.addEventListener('DOMContentLoaded', () => {
-    checkAuth();
+    // 最初に日付を設定
     updateCurrentDate();
+    // 認証チェック（これによりloadDashboardが呼ばれる可能性がある）
+    checkAuth();
+    // 定期的に日付を更新
     setInterval(updateCurrentDate, 1000);
 });
 
@@ -37,6 +40,14 @@ function updateCurrentDate() {
         return;
     }
     
+    // テスト用: 現在が2025年11月以前の場合は2025-11-01として扱う
+    const testDate = new Date('2025-11-01T10:00:00');
+    if (now < testDate) {
+        currentDate = '2025-11-01';
+        console.log('Using test date (before Nov 1):', currentDate);
+        return;
+    }
+    
     // 表示する日付の決定
     const nov1Switch = new Date('2025-11-01T17:00:00');
     if (now < nov1Switch) {
@@ -44,6 +55,8 @@ function updateCurrentDate() {
     } else {
         currentDate = '2025-11-02';
     }
+    
+    console.log('Current date set to:', currentDate);
 }
 
 // 営業終了メッセージ表示
@@ -160,6 +173,15 @@ function switchTab(tabName) {
 // ダッシュボード読み込み - 改善されたエラーハンドリング
 async function loadDashboard() {
     try {
+        // currentDateがnullの場合は設定
+        if (!currentDate) {
+            updateCurrentDate();
+            if (!currentDate) {
+                console.error('Failed to determine current date');
+                return;
+            }
+        }
+        
         console.log('Loading dashboard for date:', currentDate);
         console.log('Using token:', authToken ? 'Token exists' : 'No token');
         
