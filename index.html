@@ -129,6 +129,10 @@
             <h1>予約管理システム</h1>
             <div>
                 <span id="currentDate"></span>
+                <select id="dateSelector" onchange="changeDate()" style="margin-left: 20px; padding: 8px; border: 2px solid #fff; background: #fff; color: #000; font-weight: bold;">
+                    <option value="2025-11-01">11月1日</option>
+                    <option value="2025-11-02">11月2日</option>
+                </select>
                 <button onclick="logout()" style="margin-left: 20px;">ログアウト</button>
             </div>
         </div>
@@ -146,6 +150,9 @@
             <div id="reservationsTab" class="tab-content active">
                 <div class="card">
                     <h2>予約一覧</h2>
+                    <p style="color: #666; margin-bottom: 15px;">
+                        📅 表示中: <strong id="displayDate">11月1日</strong>の予約
+                    </p>
                     
                     <div class="filters">
                         <input type="text" id="searchInput" placeholder="予約番号で検索">
@@ -290,14 +297,16 @@
     <script>
         const API_URL = 'https://kunugida-reservation-admin-api-pv3b3g64na-an.a.run.app';
         let token = null;
-        let currentDate = '2025-11-01';
+        let currentDate = '2025-11-01';  // デフォルトは11/1
         let allReservations = [];
 
         // 日付更新
         setInterval(() => {
             const now = new Date();
-            document.getElementById('currentDate').textContent = 
-                now.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+            const elem = document.getElementById('currentDate');
+            if (elem) {
+                elem.textContent = now.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+            }
         }, 1000);
 
         // ログイン
@@ -338,6 +347,10 @@
         function showMain() {
             document.getElementById('loginScreen').classList.add('hidden');
             document.getElementById('mainScreen').classList.remove('hidden');
+            
+            // 日付セレクタの初期値を設定
+            document.getElementById('dateSelector').value = currentDate;
+            
             loadReservations();
             loadStatistics();
             loadSettings();
@@ -348,6 +361,23 @@
             token = localStorage.getItem('token');
             if (token) showMain();
         };
+
+        // 日付変更
+        function changeDate() {
+            currentDate = document.getElementById('dateSelector').value;
+            console.log('Date changed to:', currentDate);
+            
+            // 現在のタブに応じてデータを再読み込み
+            const activeTab = document.querySelector('.tab.active');
+            if (activeTab) {
+                const tabText = activeTab.textContent;
+                if (tabText.includes('予約一覧')) {
+                    loadReservations();
+                } else if (tabText.includes('統計')) {
+                    loadStatistics();
+                }
+            }
+        }
 
         // タブ切り替え
         function switchTab(name) {
@@ -442,6 +472,14 @@
             const tbody = document.getElementById('reservationsBody');
             tbody.innerHTML = '<tr><td colspan="7">読み込み中...</td></tr>';
             
+            // 日付表示を更新
+            const displayDate = document.getElementById('displayDate');
+            if (displayDate) {
+                displayDate.textContent = currentDate === '2025-11-01' ? '11月1日' : '11月2日';
+            }
+            
+            console.log('Loading reservations for date:', currentDate);
+            
             try {
                 const res = await fetch(`${API_URL}/api/admin/reservations?date=${currentDate}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -452,6 +490,7 @@
                 if (!res.ok) throw new Error(data.error);
                 
                 allReservations = data.reservations || [];
+                console.log('Loaded reservations:', allReservations.length);
                 displayReservations();
             } catch (err) {
                 tbody.innerHTML = `<tr><td colspan="7" class="error">エラー: ${err.message}</td></tr>`;
