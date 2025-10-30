@@ -116,7 +116,7 @@ function showMainScreen() {
     loadDashboard();
     loadSettings();
     
-    // 自動更新開始（1分ごと）
+    // 自動更新開始(1分ごと)
     updateInterval = setInterval(() => {
         if (currentTab === 'dashboard') {
             loadDashboard();
@@ -157,14 +157,20 @@ function switchTab(tabName) {
     }
 }
 
-// ダッシュボード読み込み
+// ダッシュボード読み込み - 改善されたエラーハンドリング
 async function loadDashboard() {
     try {
+        console.log('Loading dashboard for date:', currentDate);
+        console.log('Using token:', authToken ? 'Token exists' : 'No token');
+        
         const response = await fetch(`${API_BASE_URL}/api/admin/dashboard?date=${currentDate}`, {
             headers: {
                 'Authorization': `Bearer ${authToken}`
             }
         });
+        
+        console.log('Response status:', response.status);
+        console.log('Response headers:', [...response.headers.entries()]);
         
         // レスポンスのContent-Typeを確認
         const contentType = response.headers.get('content-type');
@@ -172,22 +178,44 @@ async function loadDashboard() {
         if (!contentType || !contentType.includes('application/json')) {
             console.error('Expected JSON but got:', contentType);
             const text = await response.text();
-            console.error('Response body:', text.substring(0, 500));
-            throw new Error('APIがJSONではなくHTMLを返しています。バックエンドのログを確認してください。');
+            console.error('Response body (first 1000 chars):', text.substring(0, 1000));
+            
+            // HTMLが返ってきた場合の詳細なエラー
+            if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+                throw new Error(`APIがHTMLを返しています。\nステータス: ${response.status}\n\nバックエンドでエラーが発生している可能性があります。Cloud Runのログを確認してください。`);
+            }
+            
+            throw new Error(`予期しないレスポンス形式: ${contentType}`);
         }
         
         const data = await response.json();
+        console.log('Dashboard data received:', data);
         
         if (response.ok) {
+            // 営業終了チェック
+            if (data.closed) {
+                showClosedMessage();
+                return;
+            }
+            
             updateDashboard(data);
             updateLastUpdateTime();
         } else {
             console.error('Dashboard API error:', data);
-            alert(`ダッシュボードの読み込みに失敗しました: ${data.error || 'Unknown error'}`);
+            const errorMsg = data.error || JSON.stringify(data);
+            
+            // 認証エラーの場合はログアウト
+            if (response.status === 401) {
+                alert('セッションが切れました。再度ログインしてください。');
+                logout();
+                return;
+            }
+            
+            alert(`ダッシュボードの読み込みに失敗しました:\n\nステータス: ${response.status}\nエラー: ${errorMsg}`);
         }
     } catch (error) {
         console.error('Error loading dashboard:', error);
-        alert(`ダッシュボードの読み込みに失敗しました: ${error.message}\n\nバックエンドのログを確認してください。`);
+        alert(`ダッシュボードの読み込みに失敗しました:\n\n${error.message}\n\nコンソールログを確認してください。`);
     }
 }
 
@@ -324,7 +352,7 @@ function updateLastUpdateTime() {
 
 // グループ呼び出し
 async function callNextGroup() {
-    if (!confirm('このグループを呼び出しますか？')) {
+    if (!confirm('このグループを呼び出しますか?')) {
         return;
     }
     
@@ -524,7 +552,7 @@ function closeModal() {
 async function cancelReservation() {
     if (!selectedReservationId) return;
     
-    if (!confirm('この予約をキャンセルしますか？')) {
+    if (!confirm('この予約をキャンセルしますか?')) {
         return;
     }
     
