@@ -137,6 +137,7 @@
             <!-- タブ -->
             <div class="tabs">
                 <div class="tab active" onclick="switchTab('reservations')">予約一覧</div>
+                <div class="tab" onclick="switchTab('create')">予約作成</div>
                 <div class="tab" onclick="switchTab('statistics')">統計</div>
                 <div class="tab" onclick="switchTab('settings')">設定</div>
             </div>
@@ -182,6 +183,50 @@
                             <tr><td colspan="7">読み込み中...</td></tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- 予約作成タブ -->
+            <div id="createTab" class="tab-content">
+                <div class="card">
+                    <h2>新規予約作成</h2>
+                    <p style="color: #666; margin-bottom: 20px;">
+                        予約を作成すると自動的に適切なグループに割り当てられます。<br>
+                        （4人以下のグループに自動配置、奇数=事前予約、偶数=当日来店）
+                    </p>
+                    
+                    <div style="max-width: 600px;">
+                        <div style="margin: 20px 0;">
+                            <label style="display: block; font-weight: bold; margin-bottom: 8px;">予約タイプ</label>
+                            <select id="createType" style="width: 100%; padding: 12px; border: 2px solid #000;">
+                                <option value="">選択してください</option>
+                                <option value="C">C - 当日来店 (11/1)</option>
+                                <option value="D">D - 当日来店 (11/2)</option>
+                                <option value="X">X - 関係者 (11/1)</option>
+                                <option value="Y">Y - 関係者 (11/2)</option>
+                            </select>
+                        </div>
+                        
+                        <div style="margin: 20px 0;">
+                            <label style="display: block; font-weight: bold; margin-bottom: 8px;">人数</label>
+                            <select id="createCount" style="width: 100%; padding: 12px; border: 2px solid #000;">
+                                <option value="">選択してください</option>
+                                <option value="1">1人</option>
+                                <option value="2">2人</option>
+                                <option value="3">3人</option>
+                                <option value="4">4人</option>
+                            </select>
+                        </div>
+                        
+                        <div id="timeInputDiv" style="margin: 20px 0; display: none;">
+                            <label style="display: block; font-weight: bold; margin-bottom: 8px;">指定時刻（関係者のみ）</label>
+                            <input type="time" id="createTime" style="width: 100%; padding: 12px; border: 2px solid #000;">
+                        </div>
+                        
+                        <button onclick="createReservation()" style="width: 100%; padding: 15px; margin-top: 20px;">予約を作成</button>
+                        
+                        <div id="createResult" style="margin-top: 20px;"></div>
+                    </div>
                 </div>
             </div>
 
@@ -314,6 +359,82 @@
             if (name === 'reservations') loadReservations();
             if (name === 'statistics') loadStatistics();
             if (name === 'settings') loadSettings();
+        }
+
+        // タイプ変更時の処理
+        document.addEventListener('DOMContentLoaded', function() {
+            const typeSelect = document.getElementById('createType');
+            if (typeSelect) {
+                typeSelect.addEventListener('change', function() {
+                    const timeDiv = document.getElementById('timeInputDiv');
+                    if (this.value === 'X' || this.value === 'Y') {
+                        timeDiv.style.display = 'block';
+                    } else {
+                        timeDiv.style.display = 'none';
+                    }
+                });
+            }
+        });
+
+        // 予約作成
+        async function createReservation() {
+            const type = document.getElementById('createType').value;
+            const count = document.getElementById('createCount').value;
+            const time = document.getElementById('createTime').value;
+            const resultDiv = document.getElementById('createResult');
+            
+            if (!type || !count) {
+                resultDiv.innerHTML = '<div class="error">タイプと人数を選択してください</div>';
+                return;
+            }
+            
+            if ((type === 'X' || type === 'Y') && !time) {
+                resultDiv.innerHTML = '<div class="error">関係者予約には時刻を指定してください</div>';
+                return;
+            }
+            
+            const date = (type === 'C' || type === 'X') ? '2025-11-01' : '2025-11-02';
+            
+            const requestData = {
+                type: type,
+                count: parseInt(count),
+                date: date
+            };
+            
+            if (type === 'X' || type === 'Y') {
+                requestData.time = time;
+            }
+            
+            resultDiv.innerHTML = '<p>作成中...</p>';
+            
+            try {
+                const res = await fetch(`${API_URL}/api/admin/reservations/create`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    resultDiv.innerHTML = `<div class="success">✅ 予約を作成しました: <strong>${data.reservation_id}</strong></div>`;
+                    document.getElementById('createType').value = '';
+                    document.getElementById('createCount').value = '';
+                    document.getElementById('createTime').value = '';
+                    document.getElementById('timeInputDiv').style.display = 'none';
+                    
+                    setTimeout(() => {
+                        resultDiv.innerHTML = '';
+                    }, 5000);
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ エラー: ${data.error}</div>`;
+                }
+            } catch (err) {
+                resultDiv.innerHTML = `<div class="error">❌ エラー: ${err.message}</div>`;
+            }
         }
 
         // 予約読み込み
