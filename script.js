@@ -228,6 +228,7 @@ async function loadNextGroup() {
 function displayNextGroup(data) {
     const groupNumber = data.group_number;
     const reservations = data.reservations || [];
+    const hasPriority = data.has_priority || false;
     
     document.getElementById('waitingGroupNumber').textContent = groupNumber || '-';
     
@@ -241,6 +242,15 @@ function displayNextGroup(data) {
     }
     
     container.innerHTML = '';
+    
+    // 優先予約がある場合は先頭にメッセージ表示
+    if (hasPriority) {
+        const priorityMsg = document.createElement('div');
+        priorityMsg.style.cssText = 'background: #fff3e0; color: #f57c00; padding: 10px; border-radius: 6px; margin-bottom: 12px; font-weight: bold; font-size: 14px;';
+        priorityMsg.textContent = '⚠️ 不在だった予約が含まれています（優先呼び出し）';
+        container.appendChild(priorityMsg);
+    }
+    
     reservations.forEach(res => {
         const div = document.createElement('div');
         div.className = 'reservation-card';
@@ -248,9 +258,12 @@ function displayNextGroup(data) {
             div.classList.add('vip');
         }
         
+        // 優先予約にマークを追加
+        const priorityBadge = res.priority ? '<span style="background: #ff9800; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 8px;">優先</span>' : '';
+        
         div.innerHTML = `
             <div class="reservation-info">
-                <div class="reservation-id">${res.reservation_id}</div>
+                <div class="reservation-id">${res.reservation_id}${priorityBadge}</div>
                 <div class="reservation-details">${res.count}人 | ${res.type}${res.time ? ' | ' + res.time : ''}</div>
             </div>
         `;
@@ -360,9 +373,12 @@ function displayCallingGroup(data) {
             </div>
         ` : '';
         
+        // 優先予約にマークを追加
+        const priorityBadge = res.priority ? '<span style="background: #ff9800; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 8px;">優先</span>' : '';
+        
         div.innerHTML = `
             <div class="reservation-info">
-                <div class="reservation-id">${res.reservation_id}</div>
+                <div class="reservation-id">${res.reservation_id}${priorityBadge}</div>
                 <div class="reservation-details">${res.count}人 | ${res.type}${res.time ? ' | ' + res.time : ''}</div>
                 ${res.status === 1 ? '<div class="reservation-details" style="color: #4caf50;">✓ 来店済み</div>' : ''}
                 ${res.status === 3 ? '<div class="reservation-details" style="color: #ff6b6b;">✗ 不在</div>' : ''}
@@ -516,8 +532,11 @@ function displayReservations(reservations) {
                            res.status === 1 ? 'completed' : 
                            res.status === 2 ? 'cancelled' : 'absent';
         
+        // 優先フラグの表示
+        const priorityBadge = res.priority ? ' <span style="background: #ff9800; color: #fff; padding: 2px 6px; border-radius: 3px; font-size: 10px;">優先</span>' : '';
+        
         tr.innerHTML = `
-            <td><strong>${res.reservation_id}</strong></td>
+            <td><strong>${res.reservation_id}</strong>${priorityBadge}</td>
             <td>${res.type}</td>
             <td>${res.count}人</td>
             <td>${res.group || '-'}</td>
