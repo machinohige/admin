@@ -316,6 +316,16 @@ body {
     margin-bottom: 0.5rem;
 }
 
+.reservation-created {
+    font-size: 0.75rem;
+    color: #999;
+    margin-bottom: 0.5rem;
+}
+
+.reservation-created small {
+    display: block;
+}
+
 .reservation-actions {
     display: flex;
     gap: 0.5rem;
