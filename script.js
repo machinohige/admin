@@ -1,5 +1,5 @@
 // グローバル変数
-const API_BASE_URL = 'https://kunugida-reservation-admin-api-pv3b3g64na-an.a.run.app'; // Cloud RunのURLに置き換え
+const API_BASE_URL = 'YOUR_CLOUD_RUN_URL'; // Cloud RunのURLに置き換え
 let authToken = localStorage.getItem('authToken');
 let currentDate = '11/1';
 let lastUpdate = null;
@@ -351,14 +351,16 @@ async function acceptGroup() {
     if (selectedReservations.length === 0) return;
 
     const ids = selectedReservations.map(r => r.id);
-    const result = await apiCall('/api/reservations/batch-delete', 'POST', { ids });
-
-    if (result && result.success) {
-        selectedReservations = [];
-        renderCallGroup();
-        updateGroupCount();
-        loadGroupScreen();
+    
+    // 各予約のstatusを1に更新
+    for (const id of ids) {
+        await apiCall(`/api/reservations/${id}`, 'PUT', { status: 1 });
     }
+
+    selectedReservations = [];
+    renderCallGroup();
+    updateGroupCount();
+    loadGroupScreen();
 }
 
 async function markAsAbsent(reservationId) {
@@ -666,11 +668,18 @@ function renderChart(data) {
 async function loadSettings() {
     const data = await apiCall('/api/settings');
     
-    if (!data) return;
+    if (!data) {
+        // データがない場合はデフォルト値
+        document.getElementById('setting-reception').checked = true;
+        document.getElementById('setting-joukyou').checked = true;
+        document.getElementById('setting-jidou').checked = true;
+        return;
+    }
 
-    document.getElementById('setting-reception').checked = data.reception || false;
-    document.getElementById('setting-joukyou').checked = data.joukyou || false;
-    document.getElementById('setting-jidou').checked = data.jidou || false;
+    // Firestoreから取得した値を設定
+    document.getElementById('setting-reception').checked = data.reception !== undefined ? data.reception : true;
+    document.getElementById('setting-joukyou').checked = data.joukyou !== undefined ? data.joukyou : true;
+    document.getElementById('setting-jidou').checked = data.jidou !== undefined ? data.jidou : true;
 }
 
 async function saveSettings() {
