@@ -425,7 +425,10 @@ async function backToWaitingGroup(groupNumber) {
         });
         
         if (response.ok) {
-            loadNextGroup();
+            // 全セクションを更新
+            loadUpcomingGroups();
+            loadMultiCallGroups();
+            loadCalledGroups();
         } else {
             alert('グループを戻すことができませんでした');
         }
@@ -565,8 +568,10 @@ async function markVisit(reservationId) {
         });
         
         if (response.ok) {
+            // 全セクションを更新
             loadCalledGroups();
             loadUpcomingGroups();
+            loadMultiCallGroups();
         } else {
             alert('来店確認に失敗しました');
         }
@@ -587,8 +592,10 @@ async function markAbsent(reservationId) {
         });
         
         if (response.ok) {
+            // 不在になったら優先順位を考慮して待機中に表示されるように全セクションを更新
             loadCalledGroups();
             loadUpcomingGroups();
+            loadMultiCallGroups();
         } else {
             alert('不在マークに失敗しました');
         }
@@ -664,11 +671,22 @@ async function loadUpcomingGroups() {
         
         const reservations = data.reservations || [];
         
-        // グループごとに整理（status=0のみ）
+        // 呼び出し中のグループ番号を取得
+        const callingGroupsResponse = await fetch(`${API_BASE_URL}/api/admin/calling-group?date=${currentDate}`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        const callingData = await callingGroupsResponse.json();
+        const callingGroupNumber = callingData.group_number;
+        
+        // グループごとに整理（status=0のみ、かつ呼び出し中でないもの）
         const groupMap = new Map();
         
         reservations.forEach(res => {
             if (res.status !== 0 || !res.group) return;
+            // 呼び出し中のグループは除外
+            if (callingGroupNumber && res.group === callingGroupNumber) return;
             
             if (!groupMap.has(res.group)) {
                 groupMap.set(res.group, {
@@ -790,11 +808,22 @@ async function loadMultiCallGroups() {
         
         const reservations = data.reservations || [];
         
-        // グループごとに整理（status=0のみ）
+        // 呼び出し中のグループ番号を取得
+        const callingGroupsResponse = await fetch(`${API_BASE_URL}/api/admin/calling-group?date=${currentDate}`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        const callingData = await callingGroupsResponse.json();
+        const callingGroupNumber = callingData.group_number;
+        
+        // グループごとに整理（status=0のみ、かつ呼び出し中でないもの）
         const groupMap = new Map();
         
         reservations.forEach(res => {
             if (res.status !== 0 || !res.group) return;
+            // 呼び出し中のグループは除外
+            if (callingGroupNumber && res.group === callingGroupNumber) return;
             
             if (!groupMap.has(res.group)) {
                 groupMap.set(res.group, {
@@ -913,7 +942,9 @@ async function callSingleGroup(groupNumber) {
         });
         
         if (response.ok) {
-            // 呼び出し後、画面を更新
+            // 呼び出し後、全セクションを更新
+            loadUpcomingGroups();
+            loadMultiCallGroups();
             loadCalledGroups();
         } else {
             alert('グループの呼び出しに失敗しました');
@@ -950,6 +981,9 @@ async function callMultipleGroups() {
         
         selectedMultiCallGroups.clear();
         alert('グループを呼び出しました');
+        // 全セクションを更新
+        loadUpcomingGroups();
+        loadMultiCallGroups();
         loadCalledGroups();
     } catch (error) {
         console.error('Error calling multiple groups:', error);
