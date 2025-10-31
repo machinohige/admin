@@ -358,11 +358,13 @@ function displayCallingGroup(data) {
             visitedCount += res.count;
         } else if (res.status === 3) {
             div.classList.add('absent');
+            allProcessed = false;  // 優先予約(status=3)も未処理扱い
         } else {
             allProcessed = false;
         }
         
-        const buttons = (res.status === 0) ? `
+        // status=0（待機中）またはstatus=3（優先予約）の場合はボタンを表示
+        const buttons = (res.status === 0 || res.status === 3) ? `
             <div class="reservation-actions">
                 <button class="btn btn-visit" onclick="markVisit('${res.reservation_id}')">
                     来店
