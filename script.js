@@ -1,6 +1,6 @@
 // グローバル変数
 const API_BASE_URL = 'https://kunugida-reservation-admin-api-pv3b3g64na-an.a.run.app';
-// グローバル変数
+
 // デバッグ: 起動時にURLを確認
 console.log('=== 予約管理システム起動 ===');
 console.log('API_BASE_URL:', API_BASE_URL);
@@ -13,6 +13,7 @@ let lastUpdate = null;
 let reservationsCache = [];
 let selectedReservations = [];
 let absentCheckInterval = null;
+let autoStopCheckInterval = null; // 自動停止チェック用
 let currentSettings = null; // 設定をキャッシュ
 
 // ユーティリティ関数
@@ -262,8 +263,6 @@ async function loadGroupScreen() {
     priorityReservations.forEach(res => {
         priorityQueue.appendChild(createReservationCard(res, true));
     });
-
-    checkAutoStop();
 }
 
 function createReservationCard(reservation, showTime = false) {
@@ -499,12 +498,26 @@ function startAbsentCheck() {
     }, 30000); // 30秒ごとにチェック
 
     loadAbsentList();
+    
+    // 自動停止チェックも開始（1分ごと）
+    if (!autoStopCheckInterval) {
+        checkAutoStop(); // 初回実行
+        autoStopCheckInterval = setInterval(() => {
+            checkAutoStop();
+        }, 60000); // 1分ごと
+    }
 }
 
 function stopAbsentCheck() {
     if (absentCheckInterval) {
         clearInterval(absentCheckInterval);
         absentCheckInterval = null;
+    }
+    
+    // 自動停止チェックも停止
+    if (autoStopCheckInterval) {
+        clearInterval(autoStopCheckInterval);
+        autoStopCheckInterval = null;
     }
 }
 
@@ -743,20 +756,20 @@ function renderChart(data) {
 
 // 設定画面
 async function loadSettingsToCache() {
+    console.log('=== 設定を読み込み開始 ===');
     const data = await apiCall('/api/settings');
     
-    if (data) {
+    console.log('API応答:', JSON.stringify(data));
+    
+    if (data && typeof data === 'object' && !data.error) {
+        // Firebaseから取得した値をそのまま使用（デフォルト値なし）
         currentSettings = data;
-        console.log('設定を読み込みました:', currentSettings);
+        console.log('設定を読み込みました:', JSON.stringify(currentSettings));
     } else {
-        // APIエラーの場合はデフォルト値
-        currentSettings = {
-            reception: true,
-            joukyou: true,
-            jidou: true
-        };
-        console.log('設定の読み込みに失敗。デフォルト値を使用:', currentSettings);
+        console.error('設定の読み込みに失敗しました');
+        currentSettings = null;
     }
+    console.log('=== 設定読み込み完了 ===');
 }
 
 // 設定画面のUIだけ更新（キャッシュから）
@@ -772,11 +785,20 @@ function loadSettingsUI() {
 }
 
 function updateSettingsUI() {
-    // UIに反映
-    document.getElementById('setting-reception').checked = currentSettings.reception !== false;
-    document.getElementById('setting-joukyou').checked = currentSettings.joukyou !== false;
-    document.getElementById('setting-jidou').checked = currentSettings.jidou !== false;
-    console.log('設定画面を表示:', currentSettings);
+    if (!currentSettings) {
+        console.error('設定データがありません');
+        return;
+    }
+    
+    // Firebaseの値をそのまま反映（デフォルト値なし）
+    document.getElementById('setting-reception').checked = currentSettings.reception === true;
+    document.getElementById('setting-joukyou').checked = currentSettings.joukyou === true;
+    document.getElementById('setting-jidou').checked = currentSettings.jidou === true;
+    
+    console.log('設定画面を表示:', JSON.stringify(currentSettings));
+    console.log('  reception:', currentSettings.reception, '型:', typeof currentSettings.reception);
+    console.log('  joukyou:', currentSettings.joukyou, '型:', typeof currentSettings.joukyou);
+    console.log('  jidou:', currentSettings.jidou, '型:', typeof currentSettings.jidou);
 }
 
 async function saveSettings() {
@@ -809,7 +831,16 @@ async function saveSettings() {
 
 // 自動受付停止チェック
 async function checkAutoStop() {
-    await apiCall('/api/check-auto-stop', 'POST', { date: currentDate });
+    const result = await apiCall('/api/check-auto-stop', 'POST', { date: currentDate });
+    
+    if (result && result.should_stop) {
+        console.log('自動受付停止が実行されました');
+        // キャッシュも更新
+        if (currentSettings) {
+            currentSettings.reception = false;
+            console.log('設定キャッシュを更新: reception = false');
+        }
+    }
 }
 
 // イベントリスナー設定
