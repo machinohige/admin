@@ -1,11 +1,19 @@
 // グローバル変数
 const API_BASE_URL = 'https://kunugida-reservation-admin-api-pv3b3g64na-an.a.run.app';
+
+// デバッグ: 起動時にURLを確認
+console.log('=== 予約管理システム起動 ===');
+console.log('API_BASE_URL:', API_BASE_URL);
+console.log('API_BASE_URLが "YOUR_CLOUD_RUN_URL" のままの場合は、実際のCloud RunのURLに置き換えてください');
+console.log('========================');
+
 let authToken = localStorage.getItem('authToken');
 let currentDate = '11/1';
 let lastUpdate = null;
 let reservationsCache = [];
 let selectedReservations = [];
 let absentCheckInterval = null;
+let currentSettings = null; // 設定をキャッシュ
 
 // ユーティリティ関数
 function formatDateTime(isoString) {
@@ -47,10 +55,24 @@ async function apiCall(endpoint, method = 'GET', data = null) {
     }
 
     try {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+        const url = `${API_BASE_URL}${endpoint}`;
+        console.log('API Call:', method, url);
+        
+        const response = await fetch(url, options);
+        
+        console.log('API Response Status:', response.status);
         
         if (response.status === 401) {
             logout();
+            return null;
+        }
+
+        // レスポンスのContent-Typeを確認
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('Non-JSON response:', text.substring(0, 200));
+            alert(`APIエラー: JSONではないレスポンスが返されました。\nURL: ${url}\nStatus: ${response.status}\n\nコンソールを確認してください。`);
             return null;
         }
 
@@ -58,7 +80,8 @@ async function apiCall(endpoint, method = 'GET', data = null) {
         return result;
     } catch (error) {
         console.error('API Error:', error);
-        alert('通信エラーが発生しました');
+        console.error('URL:', `${API_BASE_URL}${endpoint}`);
+        alert(`通信エラーが発生しました\nエンドポイント: ${endpoint}\nエラー: ${error.message}\n\nAPI_BASE_URL: ${API_BASE_URL}`);
         return null;
     }
 }
@@ -105,9 +128,13 @@ function showMainScreen() {
 }
 
 // メイン画面初期化
-function initMainScreen() {
+async function initMainScreen() {
     updateCurrentTime();
     setInterval(updateCurrentTime, 1000);
+    
+    // 設定を読み込む
+    await loadSettingsToCache();
+    
     loadCurrentTab();
 }
 
@@ -665,21 +692,33 @@ function renderChart(data) {
 }
 
 // 設定画面
-async function loadSettings() {
+async function loadSettingsToCache() {
     const data = await apiCall('/api/settings');
     
-    if (!data) {
-        // データがない場合はデフォルト値
-        document.getElementById('setting-reception').checked = true;
-        document.getElementById('setting-joukyou').checked = true;
-        document.getElementById('setting-jidou').checked = true;
-        return;
+    if (data) {
+        currentSettings = data;
+        console.log('設定を読み込みました:', currentSettings);
+    } else {
+        // APIエラーの場合はデフォルト値
+        currentSettings = {
+            reception: true,
+            joukyou: true,
+            jidou: true
+        };
+        console.log('設定の読み込みに失敗。デフォルト値を使用:', currentSettings);
     }
+}
 
-    // Firestoreから取得した値を設定
-    document.getElementById('setting-reception').checked = data.reception !== undefined ? data.reception : true;
-    document.getElementById('setting-joukyou').checked = data.joukyou !== undefined ? data.joukyou : true;
-    document.getElementById('setting-jidou').checked = data.jidou !== undefined ? data.jidou : true;
+async function loadSettings() {
+    // キャッシュがない場合は読み込む
+    if (!currentSettings) {
+        await loadSettingsToCache();
+    }
+    
+    // UIに反映
+    document.getElementById('setting-reception').checked = currentSettings.reception !== false;
+    document.getElementById('setting-joukyou').checked = currentSettings.joukyou !== false;
+    document.getElementById('setting-jidou').checked = currentSettings.jidou !== false;
 }
 
 async function saveSettings() {
@@ -693,6 +732,10 @@ async function saveSettings() {
     const messageElement = document.getElementById('settings-message');
 
     if (result && result.success) {
+        // キャッシュも更新
+        currentSettings = settings;
+        console.log('設定を保存しました:', currentSettings);
+        
         messageElement.textContent = '設定を保存しました';
         messageElement.className = 'message success';
     } else {
