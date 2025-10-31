@@ -1,6 +1,6 @@
 // グローバル変数
 const API_BASE_URL = 'https://kunugida-reservation-admin-api-pv3b3g64na-an.a.run.app';
-
+// グローバル変数
 // デバッグ: 起動時にURLを確認
 console.log('=== 予約管理システム起動 ===');
 console.log('API_BASE_URL:', API_BASE_URL);
@@ -26,6 +26,30 @@ function formatDateTime(isoString) {
     const minutes = String(date.getMinutes()).padStart(2, '0');
     const seconds = String(date.getSeconds()).padStart(2, '0');
     return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
+}
+
+function formatTime(isoString) {
+    if (!isoString) return '--';
+    const date = new Date(isoString);
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+}
+
+function getElapsedTime(isoString) {
+    if (!isoString) return '--';
+    const now = new Date();
+    const created = new Date(isoString);
+    const diffMs = now - created;
+    const diffMins = Math.floor(diffMs / 1000 / 60);
+    const diffSecs = Math.floor((diffMs / 1000) % 60);
+    
+    if (diffMins > 0) {
+        return `${diffMins}分${diffSecs}秒`;
+    } else {
+        return `${diffSecs}秒`;
+    }
 }
 
 function updateCurrentTime() {
@@ -170,7 +194,7 @@ function loadCurrentTab() {
             stopAbsentCheck();
             break;
         case 'settings':
-            loadSettings();
+            loadSettingsUI(); // UIだけ更新
             stopAbsentCheck();
             break;
         default:
@@ -248,6 +272,11 @@ function createReservationCard(reservation, showTime = false) {
     card.draggable = true;
     card.dataset.id = reservation.id;
     card.dataset.count = reservation.count;
+    card.dataset.createdAt = reservation.created_at || '';
+
+    // 作成時刻と経過時間を計算
+    const createdTime = formatTime(reservation.created_at);
+    const elapsed = getElapsedTime(reservation.created_at);
 
     card.innerHTML = `
         <div class="reservation-info">
@@ -255,6 +284,11 @@ function createReservationCard(reservation, showTime = false) {
             <span class="reservation-count">${reservation.count}人</span>
         </div>
         ${showTime && reservation.time ? `<div class="reservation-time">予約時間: ${reservation.time}</div>` : ''}
+        ${!showTime ? `
+        <div class="reservation-created">
+            <small>登録: ${createdTime} (${elapsed})</small>
+        </div>
+        ` : ''}
         <div class="reservation-actions">
             <button class="btn-small btn-cancel" onclick="cancelReservation('${reservation.id}')">キャンセル</button>
         </div>
@@ -461,6 +495,7 @@ function startAbsentCheck() {
     
     absentCheckInterval = setInterval(() => {
         loadAbsentList();
+        updateElapsedTimes(); // 経過時間を更新
     }, 30000); // 30秒ごとにチェック
 
     loadAbsentList();
@@ -471,6 +506,21 @@ function stopAbsentCheck() {
         clearInterval(absentCheckInterval);
         absentCheckInterval = null;
     }
+}
+
+// 画面上の経過時間表示を更新
+function updateElapsedTimes() {
+    document.querySelectorAll('.reservation-card').forEach(card => {
+        const createdAt = card.dataset.createdAt;
+        if (!createdAt) return;
+        
+        const elapsed = getElapsedTime(createdAt);
+        const createdTimeElement = card.querySelector('.reservation-created small');
+        if (createdTimeElement) {
+            const createdTime = formatTime(createdAt);
+            createdTimeElement.textContent = `登録: ${createdTime} (${elapsed})`;
+        }
+    });
 }
 
 async function cancelReservation(reservationId) {
@@ -709,16 +759,24 @@ async function loadSettingsToCache() {
     }
 }
 
-async function loadSettings() {
+// 設定画面のUIだけ更新（キャッシュから）
+function loadSettingsUI() {
     // キャッシュがない場合は読み込む
     if (!currentSettings) {
-        await loadSettingsToCache();
+        loadSettingsToCache().then(() => {
+            updateSettingsUI();
+        });
+    } else {
+        updateSettingsUI();
     }
-    
+}
+
+function updateSettingsUI() {
     // UIに反映
     document.getElementById('setting-reception').checked = currentSettings.reception !== false;
     document.getElementById('setting-joukyou').checked = currentSettings.joukyou !== false;
     document.getElementById('setting-jidou').checked = currentSettings.jidou !== false;
+    console.log('設定画面を表示:', currentSettings);
 }
 
 async function saveSettings() {
