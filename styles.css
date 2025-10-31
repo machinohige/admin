@@ -86,6 +86,15 @@ body {
     font-size: 14px;
 }
 
+.header-info select {
+    padding: 8px 16px;
+    background: #ffffff;
+    color: #000000;
+    border: 2px solid #000000;
+    font-weight: 600;
+    cursor: pointer;
+}
+
 .logout-btn {
     padding: 8px 16px;
     background: #ffffff;
@@ -158,6 +167,136 @@ body {
     color: #666666;
 }
 
+/* グループ呼び出し画面 */
+.group-call-screen {
+    text-align: center;
+    padding: 60px 40px;
+    border-radius: 12px;
+    min-height: 600px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.group-call-screen.waiting {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #ffffff;
+}
+
+.group-call-screen.calling {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: #ffffff;
+}
+
+.group-call-screen.completed {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: #ffffff;
+}
+
+.screen-title {
+    font-size: 28px;
+    margin-bottom: 30px;
+    opacity: 0.9;
+    font-weight: 600;
+}
+
+.group-number-display {
+    font-size: 140px;
+    font-weight: bold;
+    margin: 40px 0;
+    letter-spacing: 12px;
+    text-shadow: 4px 4px 8px rgba(0,0,0,0.2);
+}
+
+.reservations-in-group {
+    display: grid;
+    gap: 20px;
+    max-width: 900px;
+    margin: 40px auto;
+    width: 100%;
+}
+
+.loading-text {
+    font-size: 20px;
+    opacity: 0.8;
+}
+
+.reservation-card {
+    background: #ffffff;
+    border: 3px solid #000000;
+    padding: 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: all 0.3s;
+}
+
+.reservation-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+}
+
+.reservation-card.vip {
+    border-color: #ffd700;
+    background: linear-gradient(135deg, #fff9e6 0%, #fffef0 100%);
+}
+
+.reservation-card.absent {
+    opacity: 0.4;
+    background: #f5f5f5;
+    filter: grayscale(100%);
+}
+
+.reservation-card.visited {
+    opacity: 0.6;
+    background: #e8f5e9;
+    border-color: #4caf50;
+}
+
+.reservation-info {
+    flex: 1;
+    text-align: left;
+}
+
+.reservation-id {
+    font-size: 36px;
+    font-weight: bold;
+    margin-bottom: 8px;
+    color: #000000;
+}
+
+.reservation-details {
+    font-size: 20px;
+    color: #666666;
+}
+
+.reservation-actions {
+    display: flex;
+    gap: 15px;
+}
+
+.completion-message {
+    font-size: 48px;
+    font-weight: bold;
+    margin: 40px 0;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+}
+
+.visitor-count {
+    font-size: 28px;
+    margin-top: 25px;
+    opacity: 0.9;
+}
+
+.countdown {
+    font-size: 20px;
+    margin-top: 20px;
+    opacity: 0.8;
+}
+
 /* カード */
 .card {
     background: #ffffff;
@@ -173,97 +312,9 @@ body {
     border-bottom: 2px solid #f5f5f5;
 }
 
-/* ダッシュボードグリッド */
-.dashboard-grid {
-    display: grid;
-    gap: 30px;
-}
-
-.primary-card {
-    background: #000000;
-    color: #ffffff;
-}
-
-.primary-card h2 {
-    color: #ffffff;
-    border-bottom-color: #333333;
-}
-
-/* 次に呼び出すグループ */
-.next-group {
-    text-align: center;
-}
-
-.group-number {
-    font-size: 64px;
-    font-weight: 700;
-    margin: 30px 0;
-    letter-spacing: 4px;
-}
-
-.group-number.small {
-    font-size: 36px;
-    margin: 20px 0;
-}
-
-.group-reservations {
-    background: #ffffff;
-    color: #000000;
-    padding: 20px;
-    margin: 20px 0;
-    border: 2px solid #ffffff;
-    min-height: 100px;
-}
-
-/* 予約アイテム */
-.reservation-items {
-    display: grid;
-    gap: 15px;
-}
-
-.reservation-item {
-    background: #f5f5f5;
-    border: 2px solid #e0e0e0;
-    padding: 15px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.reservation-item.vip {
-    border-color: #ffd700;
-    background: #fffef0;
-}
-
-.reservation-item.no-show {
-    border-color: #ff6b6b;
-    background: #fff0f0;
-}
-
-.reservation-info {
-    display: flex;
-    gap: 20px;
-    align-items: center;
-}
-
-.reservation-number {
-    font-size: 24px;
-    font-weight: 700;
-}
-
-.reservation-details {
-    font-size: 14px;
-    color: #666666;
-}
-
-.reservation-actions {
-    display: flex;
-    gap: 10px;
-}
-
 /* ボタン */
 .btn {
-    padding: 10px 20px;
+    padding: 12px 24px;
     font-size: 14px;
     font-weight: 600;
     border: 2px solid #000000;
@@ -315,54 +366,59 @@ body {
     background: #f44336;
 }
 
-/* 次の予約リスト */
-.upcoming-lists {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 20px;
+.btn-call {
+    background: #000000;
+    color: #ffffff;
+    font-size: 28px;
+    padding: 25px 80px;
+    border-radius: 12px;
+    margin-top: 30px;
+    border: none;
 }
 
-.upcoming-section h3 {
-    font-size: 16px;
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 2px solid #f5f5f5;
+.btn-call:hover:not(:disabled) {
+    opacity: 0.9;
 }
 
-.reservation-list {
-    display: grid;
-    gap: 10px;
+.btn-back {
+    background: rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+    border: 2px solid #ffffff;
+    margin-top: 30px;
+    padding: 12px 40px;
+    border-radius: 8px;
 }
 
-.reservation-list-item {
-    background: #f5f5f5;
-    padding: 12px;
-    border-left: 4px solid #000000;
-    font-size: 14px;
+.btn-back:hover {
+    background: rgba(255, 255, 255, 0.5);
 }
 
-.reservation-list-item.vip {
-    border-left-color: #ffd700;
+.btn-visit {
+    background: #4caf50;
+    color: #ffffff;
+    border: 3px solid #4caf50;
+    padding: 16px 40px;
+    font-size: 18px;
+    font-weight: bold;
+    border-radius: 8px;
 }
 
-/* 呼び出し済みリスト */
-.called-list {
-    display: grid;
-    gap: 10px;
+.btn-visit:hover {
+    opacity: 0.9;
 }
 
-.called-item {
-    background: #fff0f0;
-    border: 2px solid #ff6b6b;
-    padding: 15px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+.btn-absent {
+    background: #ff6b6b;
+    color: #ffffff;
+    border: 3px solid #ff6b6b;
+    padding: 16px 40px;
+    font-size: 18px;
+    font-weight: bold;
+    border-radius: 8px;
 }
 
-.called-time {
-    font-size: 12px;
-    color: #666666;
+.btn-absent:hover {
+    opacity: 0.9;
 }
 
 /* 検索バー */
@@ -438,6 +494,11 @@ td {
     color: #d32f2f;
 }
 
+.status-badge.absent {
+    background: #fff3e0;
+    color: #f57c00;
+}
+
 /* フォーム */
 .form-grid {
     display: grid;
@@ -463,7 +524,7 @@ td {
 }
 
 .form-actions {
-    margin-top: 10px;
+    margin-top: 20px;
 }
 
 /* 統計カード */
@@ -682,8 +743,8 @@ td {
         padding: 20px;
     }
 
-    .group-number {
-        font-size: 48px;
+    .group-number-display {
+        font-size: 100px;
     }
 }
 
@@ -704,8 +765,29 @@ td {
         font-size: 14px;
     }
 
-    .upcoming-lists {
-        grid-template-columns: 1fr;
+    .group-number-display {
+        font-size: 80px;
+        letter-spacing: 8px;
+    }
+
+    .reservation-card {
+        flex-direction: column;
+        gap: 20px;
+        text-align: center;
+    }
+
+    .reservation-info {
+        text-align: center;
+    }
+
+    .reservation-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .btn-visit,
+    .btn-absent {
+        width: 100%;
     }
 
     .stats-grid {
