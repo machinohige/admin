@@ -1,1474 +1,754 @@
 // グローバル変数
-const API_BASE_URL = 'https://kunugida-reservation-admin-api-pv3b3g64na-an.a.run.app';
-let authToken = null;
-let currentTab = 'groupCall';
-let currentDate = null;
-let allReservations = [];
-let updateInterval = null;
-let selectedReservationId = null;
-let currentGroupNumber = null;
+const API_BASE_URL = 'YOUR_CLOUD_RUN_URL'; // Cloud RunのURLに置き換え
+let authToken = localStorage.getItem('authToken');
+let currentDate = '11/1';
+let lastUpdate = null;
+let reservationsCache = [];
+let selectedReservations = [];
+let absentCheckInterval = null;
 
-// 初期化
-document.addEventListener('DOMContentLoaded', () => {
-    // 最初に日付を設定
-    updateCurrentDate();
-    // 認証チェック
-    checkAuth();
-    // 定期的に日付を更新
-    setInterval(updateCurrentDate, 1000);
-});
-
-// 現在日時の判定
-function updateCurrentDate() {
-    const now = new Date();
-    const dateStr = document.getElementById('currentDate');
-    
-    if (dateStr) {
-        dateStr.textContent = now.toLocaleString('ja-JP', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-        });
-    }
-    
-    // 営業終了判定
-    const nov2End = new Date('2025-11-02T17:00:00');
-    if (now >= nov2End) {
-        showClosedMessage();
-        return;
-    }
-    
-    // テスト用: 現在が2025年11月以前の場合は2025-11-01として扱う
-    const testDate = new Date('2025-11-01T10:00:00');
-    if (now < testDate) {
-        currentDate = '2025-11-01';
-        return;
-    }
-    
-    // 表示する日付の決定
-    const nov1Switch = new Date('2025-11-01T17:00:00');
-    if (now < nov1Switch) {
-        currentDate = '2025-11-01';
-    } else {
-        currentDate = '2025-11-02';
-    }
+// ユーティリティ関数
+function formatDateTime(isoString) {
+    if (!isoString) return '--';
+    const date = new Date(isoString);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
 }
 
-// 営業終了メッセージ表示
-function showClosedMessage() {
-    document.getElementById('closedMessage').style.display = 'block';
-    document.querySelectorAll('.tab-content').forEach(tab => {
-        if (tab.id !== 'closedMessage') {
-            tab.style.display = 'none';
+function updateCurrentTime() {
+    document.getElementById('current-time').textContent = formatDateTime(new Date().toISOString());
+}
+
+function updateLastUpdateTime() {
+    lastUpdate = new Date().toISOString();
+    document.getElementById('last-update').textContent = formatDateTime(lastUpdate);
+}
+
+// API呼び出し
+async function apiCall(endpoint, method = 'GET', data = null) {
+    const options = {
+        method,
+        headers: {
+            'Content-Type': 'application/json',
         }
-    });
-    if (updateInterval) {
-        clearInterval(updateInterval);
-    }
-}
+    };
 
-// ログイン
-async function login() {
-    const password = document.getElementById('passwordInput').value;
-    
+    if (authToken) {
+        options.headers['Authorization'] = authToken;
+    }
+
+    if (data) {
+        options.body = JSON.stringify(data);
+    }
+
     try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/login`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ password })
-        });
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
         
-        const data = await response.json();
-        
-        if (response.ok) {
-            authToken = data.token;
-            localStorage.setItem('adminToken', authToken);
-            showMainScreen();
-        } else {
-            document.getElementById('loginError').style.display = 'block';
+        if (response.status === 401) {
+            logout();
+            return null;
         }
+
+        const result = await response.json();
+        return result;
     } catch (error) {
-        console.error('Login error:', error);
-        document.getElementById('loginError').style.display = 'block';
+        console.error('API Error:', error);
+        alert('通信エラーが発生しました');
+        return null;
     }
 }
 
-// 認証チェック
-function checkAuth() {
-    const token = localStorage.getItem('adminToken');
-    if (token) {
-        authToken = token;
+// 認証関連
+async function login() {
+    const password = document.getElementById('password-input').value;
+    const errorElement = document.getElementById('login-error');
+
+    if (!password) {
+        errorElement.textContent = 'パスワードを入力してください';
+        return;
+    }
+
+    const result = await apiCall('/api/login', 'POST', { password });
+
+    if (result && result.success) {
+        authToken = result.token;
+        localStorage.setItem('authToken', authToken);
         showMainScreen();
+    } else {
+        errorElement.textContent = 'パスワードが正しくありません';
     }
 }
 
-// ログアウト
 function logout() {
+    apiCall('/api/logout', 'POST');
     authToken = null;
-    localStorage.removeItem('adminToken');
-    document.getElementById('loginScreen').classList.add('active');
-    document.getElementById('mainScreen').classList.remove('active');
-    if (updateInterval) {
-        clearInterval(updateInterval);
-    }
+    localStorage.removeItem('authToken');
+    showLoginScreen();
 }
 
-// メイン画面表示
+function showLoginScreen() {
+    document.getElementById('login-screen').classList.remove('hidden');
+    document.getElementById('main-screen').classList.add('hidden');
+    document.getElementById('password-input').value = '';
+    document.getElementById('login-error').textContent = '';
+}
+
 function showMainScreen() {
-    document.getElementById('loginScreen').classList.remove('active');
-    document.getElementById('mainScreen').classList.add('active');
-    
-    // 日付セレクタの設定
-    if (currentDate) {
-        document.getElementById('dateSelector').value = currentDate;
-    }
-    
-    // データ取得開始
-    loadNextGroup();
-    loadSettings();
-    
-    // 自動更新開始(5秒ごと)
-    updateInterval = setInterval(() => {
-        if (currentTab === 'groupCall') {
-            loadUpcomingGroups();
-            loadMultiCallGroups();
-            loadVipSchedule();
-            loadCalledGroups();
-        }
-    }, 5000);
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('main-screen').classList.remove('hidden');
+    initMainScreen();
 }
 
-// 日付変更
-function changeDate() {
-    currentDate = document.getElementById('dateSelector').value;
-    
-    // 現在のタブに応じてデータを再読み込み
-    switch(currentTab) {
-        case 'groupCall':
-            loadNextGroup();
-            break;
-        case 'reservations':
-            loadAllReservations();
-            break;
-        case 'statistics':
-            loadStatistics();
-            break;
-    }
+// メイン画面初期化
+function initMainScreen() {
+    updateCurrentTime();
+    setInterval(updateCurrentTime, 1000);
+    loadCurrentTab();
 }
 
 // タブ切り替え
 function switchTab(tabName) {
-    currentTab = tabName;
-    
-    // タブボタンのアクティブ状態を更新
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.remove('active');
     });
-    event.target.classList.add('active');
-    
-    // タブコンテンツの表示切り替え
     document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.remove('active');
     });
-    document.getElementById(tabName + 'Tab').classList.add('active');
-    
-    // タブごとのデータ読み込み
-    switch(tabName) {
-        case 'groupCall':
-            loadNextGroup();
+
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+    document.getElementById(`tab-${tabName}`).classList.add('active');
+
+    loadCurrentTab();
+}
+
+function loadCurrentTab() {
+    const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
+
+    switch (activeTab) {
+        case 'group':
+            loadGroupScreen();
+            startAbsentCheck();
             break;
-        case 'reservations':
-            loadAllReservations();
+        case 'list':
+            loadReservationList();
+            stopAbsentCheck();
             break;
-        case 'statistics':
-            loadStatistics();
+        case 'stats':
+            loadStats();
+            stopAbsentCheck();
             break;
         case 'settings':
             loadSettings();
+            stopAbsentCheck();
             break;
+        default:
+            stopAbsentCheck();
     }
+
+    updateLastUpdateTime();
 }
 
-// 次に呼び出すグループを読み込み
-async function loadNextGroup() {
-    try {
-        if (!currentDate) {
-            updateCurrentDate();
-            if (!currentDate) return;
-        }
+// グループ呼び出し画面
+async function loadGroupScreen() {
+    const data = await apiCall(`/api/reservations?date=${currentDate}&status=0`);
+    
+    if (!data) return;
+
+    reservationsCache = data;
+
+    const normalQueue = document.getElementById('normal-queue');
+    const priorityQueue = document.getElementById('priority-queue');
+
+    normalQueue.innerHTML = '';
+    priorityQueue.innerHTML = '';
+
+    // 通常予約とプライオリティ予約を分類
+    const normalReservations = [];
+    const priorityReservations = [];
+
+    data.forEach(res => {
+        const firstChar = res.id[0];
         
-        const response = await fetch(`${API_BASE_URL}/api/admin/next-group?date=${currentDate}`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`
+        if (firstChar === 'X' || firstChar === 'Y') {
+            // プライオリティ予約
+            if ((currentDate === '11/1' && firstChar === 'X') ||
+                (currentDate === '11/2' && firstChar === 'Y')) {
+                priorityReservations.push(res);
             }
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            displayNextGroup(data);
         } else {
-            console.error('Error loading next group:', data);
+            // 通常予約
+            if ((currentDate === '11/1' && (firstChar === 'A' || firstChar === 'C')) ||
+                (currentDate === '11/2' && (firstChar === 'B' || firstChar === 'D'))) {
+                normalReservations.push(res);
+            }
         }
-    } catch (error) {
-        console.error('Error loading next group:', error);
-    }
-}
-
-// 次のグループを表示
-function displayNextGroup(data) {
-    const groupNumber = data.group_number;
-    const reservations = data.reservations || [];
-    const hasPriority = data.has_priority || false;
-    
-    document.getElementById('waitingGroupNumber').textContent = groupNumber || '-';
-    
-    const container = document.getElementById('waitingReservations');
-    
-    if (!groupNumber || reservations.length === 0) {
-        container.innerHTML = '<p class="loading-text">次のグループはありません</p>';
-        document.getElementById('callButton').disabled = true;
-        currentGroupNumber = null;
-        return;
-    }
-    
-    container.innerHTML = '';
-    
-    // 優先予約がある場合は先頭にメッセージ表示
-    if (hasPriority) {
-        const priorityMsg = document.createElement('div');
-        priorityMsg.style.cssText = 'background: #fff3e0; color: #f57c00; padding: 10px; border-radius: 6px; margin-bottom: 12px; font-weight: bold; font-size: 14px;';
-        priorityMsg.textContent = '⚠️ 不在だった予約が含まれています（優先呼び出し）';
-        container.appendChild(priorityMsg);
-    }
-    
-    reservations.forEach(res => {
-        const div = document.createElement('div');
-        div.className = 'reservation-card';
-        if (res.type === 'X' || res.type === 'Y') {
-            div.classList.add('vip');
-        }
-        
-        // 優先予約にマークを追加
-        const priorityBadge = res.priority ? '<span style="background: #ff9800; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 8px;">優先</span>' : '';
-        
-        div.innerHTML = `
-            <div class="reservation-info">
-                <div class="reservation-id">${res.reservation_id}${priorityBadge}</div>
-                <div class="reservation-details">${res.count}人 | ${res.type}${res.time ? ' | ' + res.time : ''}</div>
-            </div>
-        `;
-        container.appendChild(div);
     });
-    
-    currentGroupNumber = groupNumber;
-    document.getElementById('callButton').disabled = false;
-    
-    // 3つの大枠を更新
-    loadUpcomingGroups();
-    loadMultiCallGroups();
-    loadVipSchedule();
-    loadCalledGroups();
-}
 
-// 呼び出し済みグループを表示（4つ目のセクション）
-async function loadCalledGroups() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/reservations?date=${currentDate}`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
-        
-        const data = await response.json();
-        if (!response.ok) return;
-        
-        const reservations = data.reservations || [];
-        
-        // status=1のグループを取得（呼び出し中）
-        const groupMap = new Map();
-        
-        reservations.forEach(res => {
-            if (!res.group) return;
-            
-            if (!groupMap.has(res.group)) {
-                groupMap.set(res.group, {
-                    group: res.group,
-                    reservations: [],
-                    isCalling: false
-                });
-            }
-            
-            const groupData = groupMap.get(res.group);
-            groupData.reservations.push(res);
-        });
-        
-        // 呼び出し中のグループを取得（group collectionでstatus=1のもの）
-        const groupCollection = currentDate === '2025-11-01' ? 'group' : 'group2';
-        const groupsResponse = await fetch(`${API_BASE_URL}/api/admin/calling-group?date=${currentDate}`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
-        
-        const callingData = await groupsResponse.json();
-        
-        displayCalledGroups(callingData);
-    } catch (error) {
-        console.error('Error loading called groups:', error);
-    }
-}
-
-function displayCalledGroups(data) {
-    const container = document.getElementById('calledGroupsList');
-    if (!container) return;
-    
-    container.innerHTML = '';
-    
-    if (!data.group_number || !data.reservations || data.reservations.length === 0) {
-        container.innerHTML = '<p class="loading-text">呼び出し中のグループはありません</p>';
-        return;
-    }
-    
-    const groupNumber = data.group_number;
-    const reservations = data.reservations;
-    
-    const groupCard = document.createElement('div');
-    groupCard.className = 'called-group-card';
-    
-    let allVisited = true;
-    reservations.forEach(res => {
-        if (res.status === 0) allVisited = false;
-    });
-    
-    if (allVisited) {
-        groupCard.style.background = '#e8f5e9';
-        groupCard.style.borderColor = '#4caf50';
-    }
-    
-    const resCards = reservations.map(res => {
-        let statusBadge = '';
-        let cardClass = '';
-        
-        if (res.status === 0) {
-            statusBadge = '<span style="background: #2196f3; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 11px;">待機中</span>';
-            cardClass = 'status-waiting';
-        } else if (res.status === 1) {
-            statusBadge = '<span style="background: #4caf50; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 11px;">来店済み</span>';
-            cardClass = 'status-visited';
+    // 通常予約をソート（priority:true → false、created_at昇順）
+    normalReservations.sort((a, b) => {
+        if (a.priority !== b.priority) {
+            return b.priority ? 1 : -1;
         }
-        
-        const priorityBadge = res.priority ? '<span style="background: #ff9800; color: #fff; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-left: 6px;">優先</span>' : '';
-        
-        const buttons = res.status === 0 ? `
-            <div style="display: flex; gap: 8px; margin-top: 8px;">
-                <button class="btn btn-visit" style="flex: 1;" onclick="markVisit('${res.reservation_id}')">
-                    来店
-                </button>
-                <button class="btn btn-absent" style="flex: 1;" onclick="markAbsent('${res.reservation_id}')">
-                    不在
-                </button>
-            </div>
-        ` : '';
-        
-        return `
-            <div class="reservation-status-card ${cardClass}">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                    <div style="font-weight: bold; font-size: 15px;">${res.reservation_id}${priorityBadge}</div>
-                    ${statusBadge}
-                </div>
-                <div style="font-size: 12px; color: #666; margin-bottom: 4px;">
-                    ${res.count}名 | ${res.type}${res.time ? ' | ' + res.time : ''}
-                </div>
-                ${buttons}
-            </div>
-        `;
-    }).join('');
-    
-    groupCard.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #e0e0e0;">
-            <div style="font-size: 22px; font-weight: bold;">
-                グループ ${groupNumber}
-            </div>
-            <button class="btn" onclick="backToWaitingGroup(${groupNumber})" style="padding: 8px 16px;">
-                待機中に戻す
-            </button>
+        return new Date(a.created_at) - new Date(b.created_at);
+    });
+
+    // プライオリティ予約をソート（time昇順）
+    priorityReservations.sort((a, b) => {
+        if (!a.time || !b.time) return 0;
+        return a.time.localeCompare(b.time);
+    });
+
+    // 描画
+    normalReservations.forEach(res => {
+        normalQueue.appendChild(createReservationCard(res));
+    });
+
+    priorityReservations.forEach(res => {
+        priorityQueue.appendChild(createReservationCard(res, true));
+    });
+
+    checkAutoStop();
+}
+
+function createReservationCard(reservation, showTime = false) {
+    const card = document.createElement('div');
+    card.className = 'reservation-card';
+    card.draggable = true;
+    card.dataset.id = reservation.id;
+    card.dataset.count = reservation.count;
+
+    card.innerHTML = `
+        <div class="reservation-info">
+            <span class="reservation-id">${reservation.id}</span>
+            <span class="reservation-count">${reservation.count}人</span>
         </div>
-        ${resCards}
+        ${showTime && reservation.time ? `<div class="reservation-time">予約時間: ${reservation.time}</div>` : ''}
+        <div class="reservation-actions">
+            <button class="btn-small btn-cancel" onclick="cancelReservation('${reservation.id}')">キャンセル</button>
+        </div>
     `;
-    
-    container.appendChild(groupCard);
+
+    card.addEventListener('dragstart', handleDragStart);
+    card.addEventListener('dragend', handleDragEnd);
+
+    return card;
 }
 
-// グループを待機中に戻す
-async function backToWaitingGroup(groupNumber) {
-    if (!confirm(`グループ ${groupNumber} を待機中に戻しますか?`)) {
+// ドラッグ&ドロップ処理
+function handleDragStart(e) {
+    e.target.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', e.target.innerHTML);
+    e.dataTransfer.setData('reservationId', e.target.dataset.id);
+    e.dataTransfer.setData('reservationCount', e.target.dataset.count);
+}
+
+function handleDragEnd(e) {
+    e.target.classList.remove('dragging');
+}
+
+function setupDropZone() {
+    const dropZone = document.getElementById('call-group');
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        dropZone.classList.add('drag-over');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('drag-over');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+
+        const reservationId = e.dataTransfer.getData('reservationId');
+        const reservationCount = parseInt(e.dataTransfer.getData('reservationCount'));
+
+        addToCallGroup(reservationId, reservationCount);
+    });
+}
+
+function addToCallGroup(reservationId, reservationCount) {
+    // 既に追加されているかチェック
+    if (selectedReservations.find(r => r.id === reservationId)) {
         return;
     }
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/reset-group`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                date: currentDate,
-                group_number: groupNumber
-            })
-        });
-        
-        if (response.ok) {
-            // 全セクションを更新
-            loadUpcomingGroups();
-            loadMultiCallGroups();
-            loadCalledGroups();
-        } else {
-            alert('グループを戻すことができませんでした');
-        }
-    } catch (error) {
-        console.error('Error resetting group:', error);
-        alert('グループを戻すことができませんでした');
-    }
-}
 
-// グループを呼び出す
-async function callGroup() {
-    if (!currentGroupNumber) return;
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/call-group`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                date: currentDate,
-                group_number: currentGroupNumber
-            })
-        });
-        
-        if (response.ok) {
-            // 呼び出し中画面へ
-            document.getElementById('waitingScreen').style.display = 'none';
-            document.getElementById('callingScreen').style.display = 'block';
-            loadCallingGroup();
-        } else {
-            alert('グループの呼び出しに失敗しました');
-        }
-    } catch (error) {
-        console.error('Error calling group:', error);
-        alert('グループの呼び出しに失敗しました');
-    }
-}
-
-// 呼び出し中のグループを読み込み
-async function loadCallingGroup() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/calling-group?date=${currentDate}`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            displayCallingGroup(data);
-        } else {
-            console.error('Error loading calling group:', data);
-        }
-    } catch (error) {
-        console.error('Error loading calling group:', error);
-    }
-}
-
-// 呼び出し中のグループを表示
-function displayCallingGroup(data) {
-    const groupNumber = data.group_number;
-    const reservations = data.reservations || [];
-    
-    if (!groupNumber) {
-        // 呼び出し中のグループがない場合は待機画面に戻る
-        backToWaiting();
+    // 人数チェック
+    const currentCount = selectedReservations.reduce((sum, r) => sum + r.count, 0);
+    if (currentCount + reservationCount > 4) {
+        alert('グループの人数は4人までです');
         return;
     }
-    
-    document.getElementById('callingGroupNumber').textContent = groupNumber;
-    
-    const container = document.getElementById('callingReservations');
-    container.innerHTML = '';
-    
-    let allProcessed = true;
-    let visitedCount = 0;
-    
-    reservations.forEach(res => {
-        const div = document.createElement('div');
-        div.className = 'reservation-card';
-        
-        if (res.type === 'X' || res.type === 'Y') {
-            div.classList.add('vip');
-        }
-        
-        if (res.status === 1) {
-            div.classList.add('visited');
-            visitedCount += res.count;
-        } else {
-            allProcessed = false;
-        }
-        
-        // status=0（待機中、優先予約含む）の場合はボタンを表示
-        const buttons = (res.status === 0) ? `
+
+    selectedReservations.push({ id: reservationId, count: reservationCount });
+    renderCallGroup();
+    updateGroupCount();
+
+    // 元のキューから削除
+    const originalCard = document.querySelector(`[data-id="${reservationId}"]`);
+    if (originalCard && originalCard.parentElement.id !== 'call-group') {
+        originalCard.remove();
+    }
+}
+
+function renderCallGroup() {
+    const callGroup = document.getElementById('call-group');
+    const placeholder = callGroup.querySelector('.placeholder');
+    if (placeholder) placeholder.remove();
+
+    callGroup.innerHTML = '';
+
+    selectedReservations.forEach(res => {
+        const reservation = reservationsCache.find(r => r.id === res.id);
+        if (!reservation) return;
+
+        const card = document.createElement('div');
+        card.className = 'reservation-card selected';
+        card.dataset.id = res.id;
+
+        card.innerHTML = `
+            <div class="reservation-info">
+                <span class="reservation-id">${res.id}</span>
+                <span class="reservation-count">${res.count}人</span>
+            </div>
             <div class="reservation-actions">
-                <button class="btn btn-visit" onclick="markVisit('${res.reservation_id}')">
-                    来店
-                </button>
-                <button class="btn btn-absent" onclick="markAbsent('${res.reservation_id}')">
-                    不在
-                </button>
+                <button class="btn-small btn-absent" onclick="markAsAbsent('${res.id}')">不在</button>
+                <button class="btn-small btn-cancel" onclick="removeFromCallGroup('${res.id}')">削除</button>
             </div>
-        ` : '';
-        
-        // 優先予約にマークを追加
-        const priorityBadge = res.priority ? '<span style="background: #ff9800; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 8px;">優先</span>' : '';
-        
-        div.innerHTML = `
+        `;
+
+        callGroup.appendChild(card);
+    });
+
+    if (selectedReservations.length === 0) {
+        callGroup.innerHTML = '<p class="placeholder">予約をドラッグ&ドロップ</p>';
+    }
+}
+
+function removeFromCallGroup(reservationId) {
+    selectedReservations = selectedReservations.filter(r => r.id !== reservationId);
+    renderCallGroup();
+    updateGroupCount();
+    loadGroupScreen();
+}
+
+function updateGroupCount() {
+    const count = selectedReservations.reduce((sum, r) => sum + r.count, 0);
+    document.getElementById('group-count').textContent = `${count}/4人`;
+    document.getElementById('accept-btn').disabled = selectedReservations.length === 0;
+}
+
+async function acceptGroup() {
+    if (selectedReservations.length === 0) return;
+
+    const ids = selectedReservations.map(r => r.id);
+    const result = await apiCall('/api/reservations/batch-delete', 'POST', { ids });
+
+    if (result && result.success) {
+        selectedReservations = [];
+        renderCallGroup();
+        updateGroupCount();
+        loadGroupScreen();
+    }
+}
+
+async function markAsAbsent(reservationId) {
+    const result = await apiCall(`/api/reservations/${reservationId}`, 'PUT', {
+        absent: true
+    });
+
+    if (result && result.success) {
+        removeFromCallGroup(reservationId);
+        loadAbsentList();
+    }
+}
+
+async function loadAbsentList() {
+    const data = await apiCall(`/api/reservations?date=${currentDate}`);
+    
+    if (!data) return;
+
+    const absentList = document.getElementById('absent-list');
+    absentList.innerHTML = '';
+
+    const absentReservations = data.filter(r => r.absent);
+
+    absentReservations.forEach(res => {
+        const card = document.createElement('div');
+        card.className = 'absent-card';
+        card.draggable = true;
+        card.dataset.id = res.id;
+        card.dataset.count = res.count;
+
+        const elapsedMinutes = Math.floor((new Date() - new Date(res.absent_at)) / 1000 / 60);
+        const elapsedClass = elapsedMinutes >= 15 ? 'warning' : '';
+
+        card.innerHTML = `
             <div class="reservation-info">
-                <div class="reservation-id">${res.reservation_id}${priorityBadge}</div>
-                <div class="reservation-details">${res.count}人 | ${res.type}${res.time ? ' | ' + res.time : ''}</div>
-                ${res.status === 1 ? '<div class="reservation-details" style="color: #4caf50;">✓ 来店済み</div>' : ''}
-                ${res.priority ? '<div class="reservation-details" style="color: #ff6b6b;">⚠ 不在だった予約</div>' : ''}
+                <span class="reservation-id">${res.id}</span>
+                <span class="reservation-count">${res.count}人</span>
             </div>
-            ${buttons}
+            <div class="absent-elapsed ${elapsedClass}">
+                不在時刻: ${formatDateTime(res.absent_at)}<br>
+                経過時間: ${elapsedMinutes}分
+            </div>
+            <div class="reservation-actions">
+                <button class="btn-small btn-guide" onclick="guideAbsent('${res.id}')">案内</button>
+            </div>
         `;
-        container.appendChild(div);
+
+        card.addEventListener('dragstart', handleDragStart);
+        card.addEventListener('dragend', handleDragEnd);
+
+        absentList.appendChild(card);
+
+        // 15分経過で自動削除
+        if (elapsedMinutes >= 15) {
+            setTimeout(() => deleteReservation(res.id), 0);
+        }
     });
-    
-    // 全て処理済みの場合は完了画面へ
-    if (allProcessed) {
-        showCompletedScreen(groupNumber, visitedCount);
+}
+
+async function guideAbsent(reservationId) {
+    const result = await apiCall(`/api/reservations/${reservationId}`, 'DELETE');
+
+    if (result && result.success) {
+        loadAbsentList();
+        loadGroupScreen();
     }
 }
 
-// 来店マーク
-async function markVisit(reservationId) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/reservations/${reservationId}/visit`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
-        
-        if (response.ok) {
-            // 全セクションを更新
-            loadCalledGroups();
-            loadUpcomingGroups();
-            loadMultiCallGroups();
+function startAbsentCheck() {
+    if (absentCheckInterval) return;
+    
+    absentCheckInterval = setInterval(() => {
+        loadAbsentList();
+    }, 30000); // 30秒ごとにチェック
+
+    loadAbsentList();
+}
+
+function stopAbsentCheck() {
+    if (absentCheckInterval) {
+        clearInterval(absentCheckInterval);
+        absentCheckInterval = null;
+    }
+}
+
+async function cancelReservation(reservationId) {
+    if (!confirm('この予約をキャンセルしますか？')) return;
+
+    const result = await apiCall(`/api/reservations/${reservationId}`, 'DELETE');
+
+    if (result && result.success) {
+        loadGroupScreen();
+    }
+}
+
+async function deleteReservation(reservationId) {
+    await apiCall(`/api/reservations/${reservationId}`, 'DELETE');
+}
+
+// 予約一覧画面
+async function loadReservationList() {
+    const statusFilter = document.getElementById('filter-status').value;
+    const countFilter = document.getElementById('filter-count').value;
+
+    let query = `date=${currentDate}`;
+    if (statusFilter) query += `&status=${statusFilter}`;
+    if (countFilter) query += `&count=${countFilter}`;
+
+    const data = await apiCall(`/api/reservations?${query}`);
+    
+    if (!data) return;
+
+    const listContainer = document.getElementById('reservation-list');
+    listContainer.innerHTML = '';
+
+    if (data.length === 0) {
+        listContainer.innerHTML = '<p style="text-align: center; color: #999; padding: 2rem;">予約がありません</p>';
+        return;
+    }
+
+    data.forEach(res => {
+        const item = document.createElement('div');
+        item.className = 'reservation-list-item';
+
+        const statusText = res.status === 0 ? '待機中' : '来店済み';
+        const statusClass = res.status === 0 ? 'status-waiting' : 'status-completed';
+
+        item.innerHTML = `
+            <div class="reservation-list-info">
+                <div class="reservation-list-id">${res.id}</div>
+                <div class="reservation-list-details">
+                    ${res.count}人
+                    <span class="status-badge ${statusClass}">${statusText}</span>
+                    ${res.time ? `<span style="margin-left: 0.5rem;">予約時間: ${res.time}</span>` : ''}
+                </div>
+            </div>
+            <div class="reservation-actions">
+                ${res.status === 0 ? `<button class="btn-small btn-primary" onclick="updateReservationStatus('${res.id}', 1)">来店済み</button>` : ''}
+                <button class="btn-small btn-cancel" onclick="cancelReservation('${res.id}'); loadReservationList();">キャンセル</button>
+            </div>
+        `;
+
+        listContainer.appendChild(item);
+    });
+}
+
+async function updateReservationStatus(reservationId, status) {
+    const result = await apiCall(`/api/reservations/${reservationId}`, 'PUT', { status });
+
+    if (result && result.success) {
+        loadReservationList();
+    }
+}
+
+// 予約追加画面
+function setupAddReservation() {
+    const typeSelect = document.getElementById('add-type');
+    const timeGroup = document.getElementById('time-group');
+    const dateSelect = document.getElementById('add-date');
+
+    typeSelect.addEventListener('change', (e) => {
+        const type = e.target.value;
+        if (type === 'X' || type === 'Y') {
+            timeGroup.style.display = 'block';
         } else {
-            alert('来店確認に失敗しました');
+            timeGroup.style.display = 'none';
         }
-    } catch (error) {
-        console.error('Error marking as visited:', error);
-        alert('来店確認に失敗しました');
-    }
+    });
+
+    dateSelect.addEventListener('change', (e) => {
+        updateTypeOptions(e.target.value);
+    });
 }
 
-// 不在マーク
-async function markAbsent(reservationId) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/reservations/${reservationId}/absent`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
-        
-        if (response.ok) {
-            // 不在になったら優先順位を考慮して待機中に表示されるように全セクションを更新
-            loadCalledGroups();
-            loadUpcomingGroups();
-            loadMultiCallGroups();
-        } else {
-            alert('不在マークに失敗しました');
-        }
-    } catch (error) {
-        console.error('Error marking as absent:', error);
-        alert('不在マークに失敗しました');
-    }
-}
-
-// 完了画面を表示
-function showCompletedScreen(groupNumber, visitorCount) {
-    document.getElementById('callingScreen').style.display = 'none';
-    document.getElementById('completedScreen').style.display = 'block';
+function updateTypeOptions(date) {
+    const typeSelect = document.getElementById('add-type');
     
-    document.getElementById('completedGroupNumber').textContent = groupNumber;
-    document.getElementById('completedVisitorCount').textContent = `${visitorCount}名が入場しました`;
-    
-    // 3秒後に次のグループへ
-    let countdown = 3;
-    const countdownElem = document.getElementById('countdown');
-    
-    const timer = setInterval(() => {
-        countdown--;
-        countdownElem.textContent = `${countdown}秒後に次のグループへ...`;
-        
-        if (countdown <= 0) {
-            clearInterval(timer);
-            backToWaiting();
-        }
-    }, 1000);
-}
-
-// 待機画面に戻る
-function backToWaiting() {
-    // 呼び出し中のグループを待機中に戻す
-    if (currentGroupNumber) {
-        fetch(`${API_BASE_URL}/api/admin/reset-group`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                date: currentDate,
-                group_number: currentGroupNumber
-            })
-        }).then(() => {
-            document.getElementById('callingScreen').style.display = 'none';
-            document.getElementById('completedScreen').style.display = 'none';
-            document.getElementById('waitingScreen').style.display = 'block';
-            loadNextGroup();
-        });
+    if (date === '11/1') {
+        typeSelect.innerHTML = `
+            <option value="C">C（通常・11/1）</option>
+            <option value="X">X（関係者・11/1）</option>
+        `;
     } else {
-        document.getElementById('callingScreen').style.display = 'none';
-        document.getElementById('completedScreen').style.display = 'none';
-        document.getElementById('waitingScreen').style.display = 'block';
-        loadNextGroup();
-    }
-}
-
-// 待機中のグループ一覧を表示（priority考慮）
-let displayedGroupsCount = 5;
-async function loadUpcomingGroups() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/reservations?date=${currentDate}`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
-        
-        const data = await response.json();
-        if (!response.ok) return;
-        
-        const reservations = data.reservations || [];
-        
-        // 呼び出し中のグループ番号を取得
-        const callingGroupsResponse = await fetch(`${API_BASE_URL}/api/admin/calling-group?date=${currentDate}`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
-        const callingData = await callingGroupsResponse.json();
-        const callingGroupNumber = callingData.group_number;
-        
-        // グループごとに整理（status=0のみ、かつ呼び出し中でないもの）
-        const groupMap = new Map();
-        
-        reservations.forEach(res => {
-            if (res.status !== 0 || !res.group) return;
-            // 呼び出し中のグループは除外
-            if (callingGroupNumber && res.group === callingGroupNumber) return;
-            
-            if (!groupMap.has(res.group)) {
-                groupMap.set(res.group, {
-                    group: res.group,
-                    reservations: [],
-                    hasPriority: false,
-                    totalCount: 0
-                });
-            }
-            
-            const groupData = groupMap.get(res.group);
-            groupData.reservations.push(res);
-            groupData.totalCount += res.count;
-            if (res.priority) {
-                groupData.hasPriority = true;
-            }
-        });
-        
-        // グループをソート（優先フラグ優先、次にグループ番号）
-        const sortedGroups = Array.from(groupMap.values())
-            .sort((a, b) => {
-                if (a.hasPriority && !b.hasPriority) return -1;
-                if (!a.hasPriority && b.hasPriority) return 1;
-                return a.group - b.group;
-            });
-        
-        displayUpcomingGroups(sortedGroups);
-    } catch (error) {
-        console.error('Error loading upcoming groups:', error);
-    }
-}
-
-function displayUpcomingGroups(groups) {
-    const container = document.getElementById('upcomingGroupsList');
-    if (!container) return;
-    
-    container.innerHTML = '';
-    
-    if (groups.length === 0) {
-        container.innerHTML = '<p class="loading-text">待機中のグループはありません</p>';
-        return;
-    }
-    
-    // 表示する数だけ表示
-    const toDisplay = groups.slice(0, displayedGroupsCount);
-    
-    toDisplay.forEach((group, index) => {
-        const div = document.createElement('div');
-        div.className = 'group-preview-card';
-        if (group.hasPriority) {
-            div.style.borderLeft = '4px solid #ff9800';
-        }
-        
-        const priorityBadge = group.hasPriority ? '<span style="background: #ff9800; color: #fff; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 8px;">優先</span>' : '';
-        
-        // 各予約のステータス表示
-        const resDetails = group.reservations.map(r => {
-            let statusText = r.status === 0 ? '待機中' : 
-                           r.status === 1 ? '来店済み' : 
-                           r.status === 2 ? 'キャンセル' : '';
-            let statusColor = r.status === 0 ? '#2196f3' : 
-                            r.status === 1 ? '#4caf50' : 
-                            r.status === 2 ? '#f44336' : '#999';
-            return `<div style="display: flex; justify-content: space-between; margin-top: 6px; padding: 6px 8px; background: #f8f9fa; border-radius: 4px;">
-                <span style="font-weight: 600;">${r.reservation_id}</span>
-                <span style="color: ${statusColor}; font-size: 12px; font-weight: 600;">${statusText}</span>
-            </div>`;
-        }).join('');
-        
-        div.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: start;">
-                <div style="flex: 1;">
-                    <div style="font-size: 18px; font-weight: bold; margin-bottom: 4px;">
-                        グループ ${group.group}${priorityBadge}
-                    </div>
-                    <div style="font-size: 13px; color: #666; margin-bottom: 8px;">
-                        合計 ${group.totalCount}名
-                    </div>
-                    ${resDetails}
-                </div>
-                <div style="font-size: 24px; font-weight: bold; color: #000; padding: 8px;">
-                    ${index + 1}
-                </div>
-            </div>
-            <button class="btn btn-primary" style="width: 100%; margin-top: 12px;" onclick="callSingleGroup(${group.group})">
-                このグループを呼び出す
-            </button>
+        typeSelect.innerHTML = `
+            <option value="D">D（通常・11/2）</option>
+            <option value="Y">Y（関係者・11/2）</option>
         `;
-        
-        container.appendChild(div);
-    });
-    
-    // さらに読み込むボタン
-    if (groups.length > displayedGroupsCount) {
-        const loadMoreBtn = document.createElement('button');
-        loadMoreBtn.className = 'btn';
-        loadMoreBtn.textContent = `さらに読み込む (残り${groups.length - displayedGroupsCount}グループ)`;
-        loadMoreBtn.style.width = '100%';
-        loadMoreBtn.onclick = () => {
-            displayedGroupsCount += 5;
-            displayUpcomingGroups(groups);
-        };
-        container.appendChild(loadMoreBtn);
     }
+
+    typeSelect.dispatchEvent(new Event('change'));
 }
 
-// 同時呼び出し用グループ選択
-let selectedMultiCallGroups = new Set();
-async function loadMultiCallGroups() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/reservations?date=${currentDate}`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
-        
-        const data = await response.json();
-        if (!response.ok) return;
-        
-        const reservations = data.reservations || [];
-        
-        // 呼び出し中のグループ番号を取得
-        const callingGroupsResponse = await fetch(`${API_BASE_URL}/api/admin/calling-group?date=${currentDate}`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
-        const callingData = await callingGroupsResponse.json();
-        const callingGroupNumber = callingData.group_number;
-        
-        // グループごとに整理（status=0のみ、かつ呼び出し中でないもの）
-        const groupMap = new Map();
-        
-        reservations.forEach(res => {
-            if (res.status !== 0 || !res.group) return;
-            // 呼び出し中のグループは除外
-            if (callingGroupNumber && res.group === callingGroupNumber) return;
-            
-            if (!groupMap.has(res.group)) {
-                groupMap.set(res.group, {
-                    group: res.group,
-                    reservations: [],
-                    totalCount: 0
-                });
-            }
-            
-            const groupData = groupMap.get(res.group);
-            groupData.reservations.push(res);
-            groupData.totalCount += res.count;
-        });
-        
-        const sortedGroups = Array.from(groupMap.values())
-            .sort((a, b) => a.group - b.group);
-        
-        displayMultiCallGroups(sortedGroups);
-    } catch (error) {
-        console.error('Error loading multi-call groups:', error);
-    }
-}
+async function submitReservation() {
+    const date = document.getElementById('add-date').value;
+    const type = document.getElementById('add-type').value;
+    const count = parseInt(document.getElementById('add-count').value);
+    const time = document.getElementById('add-time').value;
+    const messageElement = document.getElementById('add-message');
 
-function displayMultiCallGroups(groups) {
-    const container = document.getElementById('multiCallGroupsList');
-    if (!container) return;
-    
-    container.innerHTML = '';
-    
-    if (groups.length === 0) {
-        container.innerHTML = '<p class="loading-text">待機中のグループはありません</p>';
-        return;
-    }
-    
-    groups.forEach(group => {
-        const div = document.createElement('div');
-        div.className = 'multi-call-card';
-        const isSelected = selectedMultiCallGroups.has(group.group);
-        if (isSelected) {
-            div.style.background = '#e3f2fd';
-            div.style.borderColor = '#2196f3';
-        }
-        
-        // 各予約のステータス表示
-        const resDetails = group.reservations.map(r => {
-            let statusText = r.status === 0 ? '待機中' : 
-                           r.status === 1 ? '来店済み' : 
-                           r.status === 2 ? 'キャンセル' : '';
-            let statusColor = r.status === 0 ? '#2196f3' : 
-                            r.status === 1 ? '#4caf50' : 
-                            r.status === 2 ? '#f44336' : '#999';
-            return `<div style="display: flex; justify-content: space-between; margin-top: 4px; padding: 4px 6px; background: rgba(0,0,0,0.03); border-radius: 3px;">
-                <span style="font-size: 11px; font-weight: 600;">${r.reservation_id}</span>
-                <span style="color: ${statusColor}; font-size: 10px; font-weight: 600;">${statusText}</span>
-            </div>`;
-        }).join('');
-        
-        div.innerHTML = `
-            <label style="display: flex; align-items: start; cursor: pointer; width: 100%;">
-                <input type="checkbox" 
-                       ${isSelected ? 'checked' : ''}
-                       onchange="toggleMultiCallGroup(${group.group})"
-                       style="width: 20px; height: 20px; margin-right: 12px; margin-top: 2px; flex-shrink: 0;">
-                <div style="flex: 1;">
-                    <div style="font-size: 16px; font-weight: bold; margin-bottom: 4px;">
-                        グループ ${group.group}
-                    </div>
-                    <div style="font-size: 12px; color: #666; margin-bottom: 6px;">
-                        合計 ${group.totalCount}名
-                    </div>
-                    ${resDetails}
-                </div>
-            </label>
-        `;
-        
-        container.appendChild(div);
-    });
-    
-    // 同時呼び出しボタン
-    const callBtn = document.createElement('button');
-    callBtn.className = 'btn btn-primary';
-    callBtn.style.width = '100%';
-    callBtn.style.marginTop = '12px';
-    callBtn.textContent = `選択したグループを同時に呼び出す (${selectedMultiCallGroups.size}グループ)`;
-    callBtn.disabled = selectedMultiCallGroups.size === 0;
-    callBtn.onclick = callMultipleGroups;
-    container.appendChild(callBtn);
-}
+    const data = { date, type, count };
 
-function toggleMultiCallGroup(groupNumber) {
-    if (selectedMultiCallGroups.has(groupNumber)) {
-        selectedMultiCallGroups.delete(groupNumber);
-    } else {
-        selectedMultiCallGroups.add(groupNumber);
-    }
-    loadMultiCallGroups();
-}
-
-// 単一グループを呼び出す
-async function callSingleGroup(groupNumber) {
-    if (!confirm(`グループ ${groupNumber} を呼び出しますか?`)) {
-        return;
-    }
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/call-group`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                date: currentDate,
-                group_number: groupNumber
-            })
-        });
-        
-        if (response.ok) {
-            // 呼び出し後、全セクションを更新
-            loadUpcomingGroups();
-            loadMultiCallGroups();
-            loadCalledGroups();
-        } else {
-            alert('グループの呼び出しに失敗しました');
-        }
-    } catch (error) {
-        console.error('Error calling group:', error);
-        alert('グループの呼び出しに失敗しました');
-    }
-}
-
-async function callMultipleGroups() {
-    if (selectedMultiCallGroups.size === 0) return;
-    
-    if (!confirm(`${selectedMultiCallGroups.size}つのグループを同時に呼び出しますか?`)) {
-        return;
-    }
-    
-    try {
-        const promises = Array.from(selectedMultiCallGroups).map(groupNum => 
-            fetch(`${API_BASE_URL}/api/admin/call-group`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${authToken}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    date: currentDate,
-                    group_number: groupNum
-                })
-            })
-        );
-        
-        await Promise.all(promises);
-        
-        selectedMultiCallGroups.clear();
-        alert('グループを呼び出しました');
-        // 全セクションを更新
-        loadUpcomingGroups();
-        loadMultiCallGroups();
-        loadCalledGroups();
-    } catch (error) {
-        console.error('Error calling multiple groups:', error);
-        alert('グループの呼び出しに失敗しました');
-    }
-}
-
-// 関係者予約スケジュール表示
-async function loadVipSchedule() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/reservations?date=${currentDate}`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
-        
-        const data = await response.json();
-        if (!response.ok) return;
-        
-        const reservations = data.reservations || [];
-        
-        // X/Y タイプで時刻指定があるもののみ
-        const vipReservations = reservations
-            .filter(res => (res.type === 'X' || res.type === 'Y') && res.time)
-            .sort((a, b) => a.time.localeCompare(b.time));
-        
-        displayVipSchedule(vipReservations);
-    } catch (error) {
-        console.error('Error loading VIP schedule:', error);
-    }
-}
-
-function displayVipSchedule(reservations) {
-    const container = document.getElementById('vipScheduleList');
-    if (!container) return;
-    
-    container.innerHTML = '';
-    
-    if (reservations.length === 0) {
-        container.innerHTML = '<p class="loading-text">関係者予約はありません</p>';
-        return;
-    }
-    
-    reservations.forEach(res => {
-        const div = document.createElement('div');
-        div.className = 'vip-schedule-card';
-        
-        let statusBadge = '';
-        let statusClass = '';
-        
-        if (res.status === 0) {
-            statusBadge = '<span style="background: #4caf50; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px;">待機中</span>';
-            statusClass = 'active';
-        } else if (res.status === 1) {
-            statusBadge = '<span style="background: #999; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px;">来店済み</span>';
-            statusClass = 'completed';
-        } else if (res.status === 2) {
-            statusBadge = '<span style="background: #f44336; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 11px;">キャンセル</span>';
-            statusClass = 'cancelled';
-        }
-        
-        const groupInfo = res.group ? `グループ${res.group}` : '未割当';
-        
-        div.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: start;">
-                <div style="flex: 1;">
-                    <div style="font-size: 20px; font-weight: bold; margin-bottom: 4px;">
-                        ${res.time}
-                    </div>
-                    <div style="font-size: 14px; color: #666; margin-bottom: 4px;">
-                        ${res.reservation_id} | ${res.count}名 | ${groupInfo}
-                    </div>
-                    ${statusBadge}
-                </div>
-            </div>
-        `;
-        
-        if (statusClass) {
-            div.classList.add(statusClass);
-        }
-        
-        container.appendChild(div);
-    });
-}
-
-// 全予約読み込み
-async function loadAllReservations() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/reservations?date=${currentDate}`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            allReservations = data.reservations || [];
-            displayReservations(allReservations);
-        }
-    } catch (error) {
-        console.error('Error loading reservations:', error);
-    }
-}
-
-// 予約検索
-function searchReservations() {
-    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-    const statusFilter = document.getElementById('statusFilter').value;
-    const typeFilter = document.getElementById('typeFilter').value;
-    
-    let filtered = allReservations;
-    
-    if (searchTerm) {
-        filtered = filtered.filter(res => 
-            res.reservation_id.toLowerCase().includes(searchTerm)
-        );
-    }
-    
-    if (statusFilter) {
-        filtered = filtered.filter(res => res.status === parseInt(statusFilter));
-    }
-    
-    if (typeFilter) {
-        filtered = filtered.filter(res => res.type === typeFilter);
-    }
-    
-    displayReservations(filtered);
-}
-
-// 予約表示
-function displayReservations(reservations) {
-    const tbody = document.getElementById('reservationsTableBody');
-    
-    if (reservations.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="empty-state">予約が見つかりません</td></tr>';
-        return;
-    }
-    
-    tbody.innerHTML = '';
-    reservations.forEach(res => {
-        const tr = document.createElement('tr');
-        
-        let statusText = res.status === 0 ? '来店前' : 
-                        res.status === 1 ? '来店済み' : 
-                        res.status === 2 ? 'キャンセル' : '不明';
-        
-        // 優先タイムアウトの場合
-        if (res.status === 2 && res.cancelled_reason === 'priority_timeout') {
-            statusText = 'キャンセル(優先期限切れ)';
-        }
-        
-        const statusClass = res.status === 0 ? 'active' : 
-                           res.status === 1 ? 'completed' : 
-                           res.status === 2 ? 'cancelled' : '';
-        
-        // 優先フラグの表示
-        const priorityBadge = res.priority ? ' <span style="background: #ff9800; color: #fff; padding: 2px 6px; border-radius: 3px; font-size: 10px;">優先</span>' : '';
-        
-        tr.innerHTML = `
-            <td><strong>${res.reservation_id}</strong>${priorityBadge}</td>
-            <td>${res.type}</td>
-            <td>${res.count}人</td>
-            <td>${res.group || '-'}</td>
-            <td>${res.time || '-'}</td>
-            <td><span class="status-badge ${statusClass}">${statusText}</span></td>
-            <td>${new Date(res.created_at).toLocaleString('ja-JP')}</td>
-            <td>
-                <button class="btn" onclick="showReservationDetail('${res.reservation_id}')">詳細</button>
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
-
-// 予約詳細表示
-function showReservationDetail(reservationId) {
-    const reservation = allReservations.find(r => r.reservation_id === reservationId);
-    if (!reservation) return;
-    
-    selectedReservationId = reservationId;
-    
-    const modalContent = document.getElementById('modalContent');
-    let statusText = reservation.status === 0 ? '来店前' : 
-                    reservation.status === 1 ? '来店済み' : 
-                    reservation.status === 2 ? 'キャンセル' : '不明';
-    
-    // 優先タイムアウトの場合
-    if (reservation.status === 2 && reservation.cancelled_reason === 'priority_timeout') {
-        statusText = 'キャンセル(優先期限切れ)';
-    }
-    
-    modalContent.innerHTML = `
-        <div class="form-grid">
-            <div class="form-group">
-                <label>予約番号</label>
-                <input type="text" value="${reservation.reservation_id}" readonly>
-            </div>
-            <div class="form-group">
-                <label>タイプ</label>
-                <input type="text" value="${reservation.type}" readonly>
-            </div>
-            <div class="form-group">
-                <label>人数</label>
-                <input type="text" value="${reservation.count}人" readonly>
-            </div>
-            <div class="form-group">
-                <label>グループ</label>
-                <input type="text" value="${reservation.group || '-'}" readonly>
-            </div>
-            <div class="form-group">
-                <label>時間</label>
-                <input type="text" value="${reservation.time || '-'}" readonly>
-            </div>
-            <div class="form-group">
-                <label>ステータス</label>
-                <input type="text" value="${statusText}" readonly>
-            </div>
-            <div class="form-group">
-                <label>作成日時</label>
-                <input type="text" value="${new Date(reservation.created_at).toLocaleString('ja-JP')}" readonly>
-            </div>
-        </div>
-    `;
-    
-    document.getElementById('reservationModal').classList.add('active');
-}
-
-// モーダルを閉じる
-function closeModal() {
-    document.getElementById('reservationModal').classList.remove('active');
-    selectedReservationId = null;
-}
-
-// 予約キャンセル
-async function cancelReservation() {
-    if (!selectedReservationId) return;
-    
-    if (!confirm('この予約をキャンセルしますか?')) {
-        return;
-    }
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/reservations/${selectedReservationId}/cancel`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
-        
-        if (response.ok) {
-            closeModal();
-            loadAllReservations();
-            alert('予約をキャンセルしました');
-        } else {
-            alert('キャンセルに失敗しました');
-        }
-    } catch (error) {
-        console.error('Error cancelling reservation:', error);
-        alert('キャンセルに失敗しました');
-    }
-}
-
-// 時間入力の表示切り替え
-function toggleTimeInput() {
-    const type = document.getElementById('newResType').value;
-    const timeGroup = document.getElementById('timeInputGroup');
-    
     if (type === 'X' || type === 'Y') {
-        timeGroup.style.display = 'block';
-        document.getElementById('newResTime').required = true;
+        if (!time) {
+            messageElement.textContent = '予約時間を入力してください';
+            messageElement.className = 'message error';
+            return;
+        }
+        data.time = time;
+    }
+
+    const result = await apiCall('/api/reservations', 'POST', data);
+
+    if (result && result.success) {
+        messageElement.textContent = `予約を追加しました: ${result.id}`;
+        messageElement.className = 'message success';
+        
+        // フォームをリセット
+        document.getElementById('add-count').value = '1';
+        document.getElementById('add-time').value = '';
     } else {
-        timeGroup.style.display = 'none';
-        document.getElementById('newResTime').required = false;
+        messageElement.textContent = '予約の追加に失敗しました';
+        messageElement.className = 'message error';
     }
 }
 
-// 手動予約作成
-async function createManualReservation() {
-    const type = document.getElementById('newResType').value;
-    const count = document.getElementById('newResCount').value;
-    const time = document.getElementById('newResTime').value;
+// 統計画面
+async function loadStats() {
+    const data = await apiCall(`/api/stats?date=${currentDate}`);
     
-    if (!type || !count) {
-        document.getElementById('newResError').textContent = '必須項目を入力してください';
-        document.getElementById('newResError').style.display = 'block';
-        return;
-    }
-    
-    if ((type === 'X' || type === 'Y') && !time) {
-        document.getElementById('newResError').textContent = '関係者予約には時刻を指定してください';
-        document.getElementById('newResError').style.display = 'block';
-        return;
-    }
-    
-    const requestData = {
-        type: type,
-        count: parseInt(count),
-        date: type === 'C' || type === 'X' ? '2025-11-01' : '2025-11-02'
-    };
-    
-    if (type === 'X' || type === 'Y') {
-        requestData.time = time;
-    }
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/reservations/create`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(requestData)
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            document.getElementById('newResSuccess').style.display = 'block';
-            document.getElementById('newResNumber').textContent = data.reservation_id;
-            document.getElementById('newResError').style.display = 'none';
-            document.getElementById('newReservationForm').reset();
-            toggleTimeInput();
-            
-            setTimeout(() => {
-                document.getElementById('newResSuccess').style.display = 'none';
-            }, 5000);
-        } else {
-            document.getElementById('newResError').textContent = data.error || '予約の作成に失敗しました';
-            document.getElementById('newResError').style.display = 'block';
-            document.getElementById('newResSuccess').style.display = 'none';
-        }
-    } catch (error) {
-        console.error('Error creating reservation:', error);
-        document.getElementById('newResError').textContent = '予約の作成に失敗しました';
-        document.getElementById('newResError').style.display = 'block';
-    }
+    if (!data) return;
+
+    document.getElementById('stat-total').textContent = data.total_reservations;
+    document.getElementById('stat-completed').textContent = `${data.completed_groups}組`;
+    document.getElementById('stat-waiting').textContent = `${data.waiting_groups}組`;
+    document.getElementById('stat-people').textContent = `${data.total_people}人`;
+
+    renderChart(data);
 }
 
-// 統計情報読み込み
-async function loadStatistics() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/statistics?date=${currentDate}`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            updateStatistics(data);
-        }
-    } catch (error) {
-        console.error('Error loading statistics:', error);
+function renderChart(data) {
+    const canvas = document.getElementById('hourly-chart');
+    const ctx = canvas.getContext('2d');
+
+    // キャンバスをクリア
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const hours = Object.keys(data.hourly_reservations).sort();
+    const reservations = hours.map(h => data.hourly_reservations[h]);
+    const completed = hours.map(h => data.hourly_completed[h]);
+
+    const maxValue = Math.max(...reservations, 10);
+    const chartHeight = 250;
+    const chartWidth = canvas.width - 80;
+    const barWidth = chartWidth / hours.length / 2 - 10;
+    const startX = 50;
+    const startY = 30;
+
+    // 背景グリッド
+    ctx.strokeStyle = '#f0f0f0';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 5; i++) {
+        const y = startY + (chartHeight / 5) * i;
+        ctx.beginPath();
+        ctx.moveTo(startX, y);
+        ctx.lineTo(startX + chartWidth, y);
+        ctx.stroke();
     }
+
+    // バーを描画
+    hours.forEach((hour, index) => {
+        const x = startX + (chartWidth / hours.length) * index + 10;
+        const reservationHeight = (reservations[index] / maxValue) * chartHeight;
+        const completedHeight = (completed[index] / maxValue) * chartHeight;
+
+        // 予約数バー（グレー）
+        ctx.fillStyle = '#ddd';
+        ctx.fillRect(x, startY + chartHeight - reservationHeight, barWidth, reservationHeight);
+
+        // 来店数バー（黒）
+        ctx.fillStyle = '#333';
+        ctx.fillRect(x + barWidth + 5, startY + chartHeight - completedHeight, barWidth, completedHeight);
+
+        // 時間ラベル
+        ctx.fillStyle = '#666';
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${hour}時`, x + barWidth, startY + chartHeight + 20);
+    });
+
+    // 凡例
+    ctx.fillStyle = '#ddd';
+    ctx.fillRect(startX + chartWidth - 150, 10, 20, 15);
+    ctx.fillStyle = '#333';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('予約数', startX + chartWidth - 125, 22);
+
+    ctx.fillStyle = '#333';
+    ctx.fillRect(startX + chartWidth - 60, 10, 20, 15);
+    ctx.fillStyle = '#333';
+    ctx.fillText('来店数', startX + chartWidth - 35, 22);
 }
 
-// 統計情報更新
-function updateStatistics(data) {
-    document.getElementById('statTotalReservations').textContent = data.total || 0;
-    document.getElementById('statVisited').textContent = data.visited || 0;
-    document.getElementById('statCancelled').textContent = data.cancelled || 0;
-    document.getElementById('statWaiting').textContent = data.waiting || 0;
-    
-    // Chart.jsが読み込まれている場合のみグラフを表示
-    if (typeof Chart !== 'undefined') {
-        // タイプ別グラフ
-        const typeCtx = document.getElementById('typeChart');
-        if (typeCtx && data.by_type) {
-            new Chart(typeCtx, {
-                type: 'bar',
-                data: {
-                    labels: Object.keys(data.by_type),
-                    datasets: [{
-                        label: '予約数',
-                        data: Object.values(data.by_type),
-                        backgroundColor: '#000000',
-                        borderColor: '#000000',
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                stepSize: 1
-                            }
-                        }
-                    }
-                }
-            });
-        }
-        
-        // 時間別グラフ
-        const timeCtx = document.getElementById('timeChart');
-        if (timeCtx && data.by_hour) {
-            new Chart(timeCtx, {
-                type: 'line',
-                data: {
-                    labels: Object.keys(data.by_hour),
-                    datasets: [{
-                        label: '来店数',
-                        data: Object.values(data.by_hour),
-                        backgroundColor: 'rgba(0, 0, 0, 0.1)',
-                        borderColor: '#000000',
-                        borderWidth: 2,
-                        fill: true
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                stepSize: 1
-                            }
-                        }
-                    }
-                }
-            });
-        }
-    }
-}
-
-// 設定読み込み
+// 設定画面
 async function loadSettings() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/settings`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            document.getElementById('settingReception').checked = data.reception || false;
-            document.getElementById('settingJoukyou').checked = data.joukyou || false;
-            document.getElementById('settingJidou').checked = data.jidou || false;
-        }
-    } catch (error) {
-        console.error('Error loading settings:', error);
-    }
+    const data = await apiCall('/api/settings');
+    
+    if (!data) return;
+
+    document.getElementById('setting-reception').checked = data.reception || false;
+    document.getElementById('setting-joukyou').checked = data.joukyou || false;
+    document.getElementById('setting-jidou').checked = data.jidou || false;
 }
 
-// 設定更新
-async function updateSetting(key) {
-    const value = document.getElementById('setting' + key.charAt(0).toUpperCase() + key.slice(1)).checked;
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/settings`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                key: key,
-                value: value
-            })
-        });
-        
-        if (!response.ok) {
-            alert('設定の更新に失敗しました');
-            loadSettings(); // 元に戻す
-        }
-    } catch (error) {
-        console.error('Error updating setting:', error);
-        alert('設定の更新に失敗しました');
-        loadSettings();
+async function saveSettings() {
+    const settings = {
+        reception: document.getElementById('setting-reception').checked,
+        joukyou: document.getElementById('setting-joukyou').checked,
+        jidou: document.getElementById('setting-jidou').checked
+    };
+
+    const result = await apiCall('/api/settings', 'PUT', settings);
+    const messageElement = document.getElementById('settings-message');
+
+    if (result && result.success) {
+        messageElement.textContent = '設定を保存しました';
+        messageElement.className = 'message success';
+    } else {
+        messageElement.textContent = '設定の保存に失敗しました';
+        messageElement.className = 'message error';
     }
+
+    setTimeout(() => {
+        messageElement.textContent = '';
+        messageElement.className = 'message';
+    }, 3000);
 }
+
+// 自動受付停止チェック
+async function checkAutoStop() {
+    await apiCall('/api/check-auto-stop', 'POST', { date: currentDate });
+}
+
+// イベントリスナー設定
+document.addEventListener('DOMContentLoaded', () => {
+    // ログイン
+    document.getElementById('login-btn').addEventListener('click', login);
+    document.getElementById('password-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') login();
+    });
+
+    // ログアウト
+    document.getElementById('logout-btn').addEventListener('click', logout);
+
+    // 更新ボタン
+    document.getElementById('refresh-btn').addEventListener('click', loadCurrentTab);
+
+    // 日付選択
+    document.querySelectorAll('input[name="date"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            currentDate = e.target.value;
+            loadCurrentTab();
+        });
+    });
+
+    // タブ切り替え
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            switchTab(e.target.dataset.tab);
+        });
+    });
+
+    // グループ呼び出し
+    setupDropZone();
+    document.getElementById('accept-btn').addEventListener('click', acceptGroup);
+
+    // 予約一覧
+    document.getElementById('apply-filters').addEventListener('click', loadReservationList);
+
+    // 予約追加
+    setupAddReservation();
+    document.getElementById('submit-reservation').addEventListener('click', submitReservation);
+
+    // 設定
+    document.getElementById('save-settings').addEventListener('click', saveSettings);
+
+    // 初期表示
+    if (authToken) {
+        showMainScreen();
+    } else {
+        showLoginScreen();
+    }
+});
