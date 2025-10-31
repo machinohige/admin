@@ -1,5 +1,6 @@
 // グローバル変数
 const API_BASE_URL = 'https://kunugida-reservation-admin-api-pv3b3g64na-an.a.run.app';
+// グローバル変数
 
 // デバッグ: 起動時にURLを確認
 console.log('=== 予約管理システム起動 ===');
@@ -756,20 +757,23 @@ function renderChart(data) {
 
 // 設定画面
 async function loadSettingsToCache() {
-    console.log('=== 設定を読み込み開始 ===');
+    const timestamp = new Date().toISOString();
+    console.log(`\n[${timestamp}] === 設定を読み込み開始 ===`);
+    console.trace('呼び出し元のスタックトレース'); // どこから呼ばれたか確認
+    
     const data = await apiCall('/api/settings');
     
-    console.log('API応答:', JSON.stringify(data));
+    console.log(`[${timestamp}] API応答:`, JSON.stringify(data));
     
     if (data && typeof data === 'object' && !data.error) {
         // Firebaseから取得した値をそのまま使用（デフォルト値なし）
         currentSettings = data;
-        console.log('設定を読み込みました:', JSON.stringify(currentSettings));
+        console.log(`[${timestamp}] ✅ 設定を読み込みました:`, JSON.stringify(currentSettings));
     } else {
-        console.error('設定の読み込みに失敗しました');
+        console.error(`[${timestamp}] ❌ 設定の読み込みに失敗しました`);
         currentSettings = null;
     }
-    console.log('=== 設定読み込み完了 ===');
+    console.log(`[${timestamp}] === 設定読み込み完了 ===\n`);
 }
 
 // 設定画面のUIだけ更新（キャッシュから）
@@ -802,11 +806,16 @@ function updateSettingsUI() {
 }
 
 async function saveSettings() {
+    const timestamp = new Date().toISOString();
+    console.log(`\n[${timestamp}] === 設定を保存 ===`);
+    
     const settings = {
         reception: document.getElementById('setting-reception').checked,
         joukyou: document.getElementById('setting-joukyou').checked,
         jidou: document.getElementById('setting-jidou').checked
     };
+    
+    console.log(`[${timestamp}] 保存する設定:`, JSON.stringify(settings));
 
     const result = await apiCall('/api/settings', 'PUT', settings);
     const messageElement = document.getElementById('settings-message');
@@ -814,11 +823,12 @@ async function saveSettings() {
     if (result && result.success) {
         // キャッシュも更新
         currentSettings = settings;
-        console.log('設定を保存しました:', currentSettings);
+        console.log(`[${timestamp}] ✅ 設定を保存しました (キャッシュも更新):`, JSON.stringify(currentSettings));
         
         messageElement.textContent = '設定を保存しました';
         messageElement.className = 'message success';
     } else {
+        console.error(`[${timestamp}] ❌ 設定の保存に失敗しました`);
         messageElement.textContent = '設定の保存に失敗しました';
         messageElement.className = 'message error';
     }
@@ -831,15 +841,22 @@ async function saveSettings() {
 
 // 自動受付停止チェック
 async function checkAutoStop() {
+    const timestamp = new Date().toISOString();
+    console.log(`\n[${timestamp}] 🔍 自動停止チェック実行`);
+    
     const result = await apiCall('/api/check-auto-stop', 'POST', { date: currentDate });
     
     if (result && result.should_stop) {
-        console.log('自動受付停止が実行されました');
+        console.log(`[${timestamp}] ⚠️ 自動受付停止が実行されました`);
+        console.log(`[${timestamp}] 待機人数: ${result.waiting_people}人`);
         // キャッシュも更新
         if (currentSettings) {
             currentSettings.reception = false;
-            console.log('設定キャッシュを更新: reception = false');
+            console.log(`[${timestamp}] ❌ 設定キャッシュを更新: reception = false`);
+            console.log(`[${timestamp}] 現在のキャッシュ:`, JSON.stringify(currentSettings));
         }
+    } else if (result) {
+        console.log(`[${timestamp}] ✅ 自動停止条件を満たしていません (待機人数: ${result.waiting_people}人)`);
     }
 }
 
