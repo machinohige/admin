@@ -1,5 +1,5 @@
 // グローバル変数
-const API_BASE_URL = 'YOUR_CLOUD_RUN_URL'; // Cloud RunのURLに置き換え
+const API_BASE_URL = 'https://kunugida-reservation-admin-api-pv3b3g64na-an.a.run.app';
 let authToken = localStorage.getItem('authToken');
 let currentDate = '11/1';
 let lastUpdate = null;
