@@ -170,9 +170,9 @@ body {
 /* グループ呼び出し画面 */
 .group-call-screen {
     text-align: center;
-    padding: 60px 40px;
-    border-radius: 12px;
-    min-height: 600px;
+    padding: 40px 20px;
+    border-radius: 8px;
+    min-height: 500px;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -180,78 +180,75 @@ body {
 }
 
 .group-call-screen.waiting {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #667eea;
     color: #ffffff;
 }
 
 .group-call-screen.calling {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    background: #f093fb;
     color: #ffffff;
 }
 
 .group-call-screen.completed {
-    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    background: #4facfe;
     color: #ffffff;
 }
 
 .screen-title {
-    font-size: 28px;
-    margin-bottom: 30px;
+    font-size: 20px;
+    margin-bottom: 20px;
     opacity: 0.9;
     font-weight: 600;
 }
 
 .group-number-display {
-    font-size: 140px;
+    font-size: 100px;
     font-weight: bold;
-    margin: 40px 0;
-    letter-spacing: 12px;
-    text-shadow: 4px 4px 8px rgba(0,0,0,0.2);
+    margin: 20px 0;
+    letter-spacing: 10px;
 }
 
 .reservations-in-group {
     display: grid;
-    gap: 20px;
-    max-width: 900px;
-    margin: 40px auto;
+    gap: 12px;
+    max-width: 700px;
+    margin: 20px auto;
     width: 100%;
 }
 
 .loading-text {
-    font-size: 20px;
+    font-size: 18px;
     opacity: 0.8;
 }
 
 .reservation-card {
     background: #ffffff;
-    border: 3px solid #000000;
-    padding: 30px;
+    border: 2px solid #000000;
+    padding: 16px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    transition: all 0.3s;
+    border-radius: 8px;
+    transition: all 0.2s;
 }
 
 .reservation-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
 .reservation-card.vip {
     border-color: #ffd700;
-    background: linear-gradient(135deg, #fff9e6 0%, #fffef0 100%);
+    background: #fffef0;
 }
 
 .reservation-card.absent {
-    opacity: 0.4;
+    opacity: 0.3;
     background: #f5f5f5;
-    filter: grayscale(100%);
 }
 
 .reservation-card.visited {
-    opacity: 0.6;
+    opacity: 0.5;
     background: #e8f5e9;
     border-color: #4caf50;
 }
@@ -262,38 +259,37 @@ body {
 }
 
 .reservation-id {
-    font-size: 36px;
+    font-size: 24px;
     font-weight: bold;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
     color: #000000;
 }
 
 .reservation-details {
-    font-size: 20px;
+    font-size: 14px;
     color: #666666;
 }
 
 .reservation-actions {
     display: flex;
-    gap: 15px;
+    gap: 10px;
 }
 
 .completion-message {
-    font-size: 48px;
+    font-size: 36px;
     font-weight: bold;
-    margin: 40px 0;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    margin: 30px 0;
 }
 
 .visitor-count {
-    font-size: 28px;
-    margin-top: 25px;
+    font-size: 22px;
+    margin-top: 15px;
     opacity: 0.9;
 }
 
 .countdown {
-    font-size: 20px;
-    margin-top: 20px;
+    font-size: 16px;
+    margin-top: 15px;
     opacity: 0.8;
 }
 
@@ -369,10 +365,10 @@ body {
 .btn-call {
     background: #000000;
     color: #ffffff;
-    font-size: 28px;
-    padding: 25px 80px;
-    border-radius: 12px;
-    margin-top: 30px;
+    font-size: 22px;
+    padding: 18px 60px;
+    border-radius: 8px;
+    margin-top: 20px;
     border: none;
 }
 
@@ -384,9 +380,9 @@ body {
     background: rgba(255, 255, 255, 0.3);
     color: #ffffff;
     border: 2px solid #ffffff;
-    margin-top: 30px;
-    padding: 12px 40px;
-    border-radius: 8px;
+    margin-top: 20px;
+    padding: 10px 30px;
+    border-radius: 6px;
 }
 
 .btn-back:hover {
@@ -396,11 +392,11 @@ body {
 .btn-visit {
     background: #4caf50;
     color: #ffffff;
-    border: 3px solid #4caf50;
-    padding: 16px 40px;
-    font-size: 18px;
+    border: 2px solid #4caf50;
+    padding: 10px 24px;
+    font-size: 14px;
     font-weight: bold;
-    border-radius: 8px;
+    border-radius: 6px;
 }
 
 .btn-visit:hover {
@@ -410,11 +406,11 @@ body {
 .btn-absent {
     background: #ff6b6b;
     color: #ffffff;
-    border: 3px solid #ff6b6b;
-    padding: 16px 40px;
-    font-size: 18px;
+    border: 2px solid #ff6b6b;
+    padding: 10px 24px;
+    font-size: 14px;
     font-weight: bold;
-    border-radius: 8px;
+    border-radius: 6px;
 }
 
 .btn-absent:hover {
@@ -744,7 +740,7 @@ td {
     }
 
     .group-number-display {
-        font-size: 100px;
+        font-size: 80px;
     }
 }
 
@@ -766,28 +762,40 @@ td {
     }
 
     .group-number-display {
-        font-size: 80px;
-        letter-spacing: 8px;
+        font-size: 60px;
+        letter-spacing: 6px;
     }
 
     .reservation-card {
         flex-direction: column;
-        gap: 20px;
+        gap: 12px;
         text-align: center;
+        padding: 12px 16px;
     }
 
     .reservation-info {
         text-align: center;
     }
 
+    .reservation-id {
+        font-size: 20px;
+    }
+
+    .reservation-details {
+        font-size: 12px;
+    }
+
     .reservation-actions {
-        flex-direction: column;
+        flex-direction: row;
         width: 100%;
+        justify-content: center;
     }
 
     .btn-visit,
     .btn-absent {
-        width: 100%;
+        flex: 1;
+        padding: 8px 16px;
+        font-size: 13px;
     }
 
     .stats-grid {
