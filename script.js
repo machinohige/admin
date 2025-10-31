@@ -461,10 +461,30 @@ function showCompletedScreen(groupNumber, visitorCount) {
 
 // 待機画面に戻る
 function backToWaiting() {
-    document.getElementById('callingScreen').style.display = 'none';
-    document.getElementById('completedScreen').style.display = 'none';
-    document.getElementById('waitingScreen').style.display = 'block';
-    loadNextGroup();
+    // 呼び出し中のグループを待機中に戻す
+    if (currentGroupNumber) {
+        fetch(`${API_BASE_URL}/api/admin/reset-group`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                date: currentDate,
+                group_number: currentGroupNumber
+            })
+        }).then(() => {
+            document.getElementById('callingScreen').style.display = 'none';
+            document.getElementById('completedScreen').style.display = 'none';
+            document.getElementById('waitingScreen').style.display = 'block';
+            loadNextGroup();
+        });
+    } else {
+        document.getElementById('callingScreen').style.display = 'none';
+        document.getElementById('completedScreen').style.display = 'none';
+        document.getElementById('waitingScreen').style.display = 'block';
+        loadNextGroup();
+    }
 }
 
 // 全予約読み込み
