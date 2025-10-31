@@ -135,14 +135,10 @@ function showMainScreen() {
     // 自動更新開始(5秒ごと)
     updateInterval = setInterval(() => {
         if (currentTab === 'groupCall') {
-            const waitingScreen = document.getElementById('waitingScreen');
-            const callingScreen = document.getElementById('callingScreen');
-            
-            if (waitingScreen.style.display !== 'none') {
-                loadNextGroup();
-            } else if (callingScreen.style.display !== 'none') {
-                loadCallingGroup();
-            }
+            loadUpcomingGroups();
+            loadMultiCallGroups();
+            loadVipSchedule();
+            loadCalledGroups();
         }
     }, 5000);
 }
@@ -277,6 +273,166 @@ function displayNextGroup(data) {
     loadUpcomingGroups();
     loadMultiCallGroups();
     loadVipSchedule();
+    loadCalledGroups();
+}
+
+// 呼び出し済みグループを表示（4つ目のセクション）
+async function loadCalledGroups() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/admin/reservations?date=${currentDate}`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        const data = await response.json();
+        if (!response.ok) return;
+        
+        const reservations = data.reservations || [];
+        
+        // status=1のグループを取得（呼び出し中）
+        const groupMap = new Map();
+        
+        reservations.forEach(res => {
+            if (!res.group) return;
+            
+            if (!groupMap.has(res.group)) {
+                groupMap.set(res.group, {
+                    group: res.group,
+                    reservations: [],
+                    isCalling: false
+                });
+            }
+            
+            const groupData = groupMap.get(res.group);
+            groupData.reservations.push(res);
+        });
+        
+        // 呼び出し中のグループを取得（group collectionでstatus=1のもの）
+        const groupCollection = currentDate === '2025-11-01' ? 'group' : 'group2';
+        const groupsResponse = await fetch(`${API_BASE_URL}/api/admin/calling-group?date=${currentDate}`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        const callingData = await groupsResponse.json();
+        
+        displayCalledGroups(callingData);
+    } catch (error) {
+        console.error('Error loading called groups:', error);
+    }
+}
+
+function displayCalledGroups(data) {
+    const container = document.getElementById('calledGroupsList');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (!data.group_number || !data.reservations || data.reservations.length === 0) {
+        container.innerHTML = '<p class="loading-text">呼び出し中のグループはありません</p>';
+        return;
+    }
+    
+    const groupNumber = data.group_number;
+    const reservations = data.reservations;
+    
+    const groupCard = document.createElement('div');
+    groupCard.className = 'called-group-card';
+    
+    let allVisited = true;
+    reservations.forEach(res => {
+        if (res.status === 0) allVisited = false;
+    });
+    
+    if (allVisited) {
+        groupCard.style.background = '#e8f5e9';
+        groupCard.style.borderColor = '#4caf50';
+    }
+    
+    const resCards = reservations.map(res => {
+        let statusBadge = '';
+        let cardClass = '';
+        
+        if (res.status === 0) {
+            statusBadge = '<span style="background: #2196f3; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 11px;">待機中</span>';
+            cardClass = 'status-waiting';
+        } else if (res.status === 1) {
+            statusBadge = '<span style="background: #4caf50; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 11px;">来店済み</span>';
+            cardClass = 'status-visited';
+        }
+        
+        const priorityBadge = res.priority ? '<span style="background: #ff9800; color: #fff; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-left: 6px;">優先</span>' : '';
+        
+        const buttons = res.status === 0 ? `
+            <div style="display: flex; gap: 8px; margin-top: 8px;">
+                <button class="btn btn-visit" style="flex: 1;" onclick="markVisit('${res.reservation_id}')">
+                    来店
+                </button>
+                <button class="btn btn-absent" style="flex: 1;" onclick="markAbsent('${res.reservation_id}')">
+                    不在
+                </button>
+            </div>
+        ` : '';
+        
+        return `
+            <div class="reservation-status-card ${cardClass}">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <div style="font-weight: bold; font-size: 15px;">${res.reservation_id}${priorityBadge}</div>
+                    ${statusBadge}
+                </div>
+                <div style="font-size: 12px; color: #666; margin-bottom: 4px;">
+                    ${res.count}名 | ${res.type}${res.time ? ' | ' + res.time : ''}
+                </div>
+                ${buttons}
+            </div>
+        `;
+    }).join('');
+    
+    groupCard.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #e0e0e0;">
+            <div style="font-size: 22px; font-weight: bold;">
+                グループ ${groupNumber}
+            </div>
+            <button class="btn" onclick="backToWaitingGroup(${groupNumber})" style="padding: 8px 16px;">
+                待機中に戻す
+            </button>
+        </div>
+        ${resCards}
+    `;
+    
+    container.appendChild(groupCard);
+}
+
+// グループを待機中に戻す
+async function backToWaitingGroup(groupNumber) {
+    if (!confirm(`グループ ${groupNumber} を待機中に戻しますか?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/admin/reset-group`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                date: currentDate,
+                group_number: groupNumber
+            })
+        });
+        
+        if (response.ok) {
+            loadNextGroup();
+        } else {
+            alert('グループを戻すことができませんでした');
+        }
+    } catch (error) {
+        console.error('Error resetting group:', error);
+        alert('グループを戻すことができませんでした');
+    }
 }
 
 // グループを呼び出す
@@ -409,7 +565,8 @@ async function markVisit(reservationId) {
         });
         
         if (response.ok) {
-            loadCallingGroup();
+            loadCalledGroups();
+            loadUpcomingGroups();
         } else {
             alert('来店確認に失敗しました');
         }
@@ -430,7 +587,8 @@ async function markAbsent(reservationId) {
         });
         
         if (response.ok) {
-            loadCallingGroup();
+            loadCalledGroups();
+            loadUpcomingGroups();
         } else {
             alert('不在マークに失敗しました');
         }
@@ -566,22 +724,38 @@ function displayUpcomingGroups(groups) {
         
         const priorityBadge = group.hasPriority ? '<span style="background: #ff9800; color: #fff; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 8px;">優先</span>' : '';
         
-        const resIds = group.reservations.map(r => r.reservation_id).join(', ');
+        // 各予約のステータス表示
+        const resDetails = group.reservations.map(r => {
+            let statusText = r.status === 0 ? '待機中' : 
+                           r.status === 1 ? '来店済み' : 
+                           r.status === 2 ? 'キャンセル' : '';
+            let statusColor = r.status === 0 ? '#2196f3' : 
+                            r.status === 1 ? '#4caf50' : 
+                            r.status === 2 ? '#f44336' : '#999';
+            return `<div style="display: flex; justify-content: space-between; margin-top: 6px; padding: 6px 8px; background: #f8f9fa; border-radius: 4px;">
+                <span style="font-weight: 600;">${r.reservation_id}</span>
+                <span style="color: ${statusColor}; font-size: 12px; font-weight: 600;">${statusText}</span>
+            </div>`;
+        }).join('');
         
         div.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div style="flex: 1;">
                     <div style="font-size: 18px; font-weight: bold; margin-bottom: 4px;">
                         グループ ${group.group}${priorityBadge}
                     </div>
-                    <div style="font-size: 13px; color: #666;">
-                        ${group.totalCount}名 | ${resIds}
+                    <div style="font-size: 13px; color: #666; margin-bottom: 8px;">
+                        合計 ${group.totalCount}名
                     </div>
+                    ${resDetails}
                 </div>
-                <div style="font-size: 24px; font-weight: bold; color: #000;">
+                <div style="font-size: 24px; font-weight: bold; color: #000; padding: 8px;">
                     ${index + 1}
                 </div>
             </div>
+            <button class="btn btn-primary" style="width: 100%; margin-top: 12px;" onclick="callSingleGroup(${group.group})">
+                このグループを呼び出す
+            </button>
         `;
         
         container.appendChild(div);
@@ -664,21 +838,34 @@ function displayMultiCallGroups(groups) {
             div.style.borderColor = '#2196f3';
         }
         
-        const resIds = group.reservations.map(r => r.reservation_id).join(', ');
+        // 各予約のステータス表示
+        const resDetails = group.reservations.map(r => {
+            let statusText = r.status === 0 ? '待機中' : 
+                           r.status === 1 ? '来店済み' : 
+                           r.status === 2 ? 'キャンセル' : '';
+            let statusColor = r.status === 0 ? '#2196f3' : 
+                            r.status === 1 ? '#4caf50' : 
+                            r.status === 2 ? '#f44336' : '#999';
+            return `<div style="display: flex; justify-content: space-between; margin-top: 4px; padding: 4px 6px; background: rgba(0,0,0,0.03); border-radius: 3px;">
+                <span style="font-size: 11px; font-weight: 600;">${r.reservation_id}</span>
+                <span style="color: ${statusColor}; font-size: 10px; font-weight: 600;">${statusText}</span>
+            </div>`;
+        }).join('');
         
         div.innerHTML = `
-            <label style="display: flex; align-items: center; cursor: pointer; width: 100%;">
+            <label style="display: flex; align-items: start; cursor: pointer; width: 100%;">
                 <input type="checkbox" 
                        ${isSelected ? 'checked' : ''}
                        onchange="toggleMultiCallGroup(${group.group})"
-                       style="width: 20px; height: 20px; margin-right: 12px;">
+                       style="width: 20px; height: 20px; margin-right: 12px; margin-top: 2px; flex-shrink: 0;">
                 <div style="flex: 1;">
                     <div style="font-size: 16px; font-weight: bold; margin-bottom: 4px;">
                         グループ ${group.group}
                     </div>
-                    <div style="font-size: 12px; color: #666;">
-                        ${group.totalCount}名 | ${resIds}
+                    <div style="font-size: 12px; color: #666; margin-bottom: 6px;">
+                        合計 ${group.totalCount}名
                     </div>
+                    ${resDetails}
                 </div>
             </label>
         `;
@@ -704,6 +891,37 @@ function toggleMultiCallGroup(groupNumber) {
         selectedMultiCallGroups.add(groupNumber);
     }
     loadMultiCallGroups();
+}
+
+// 単一グループを呼び出す
+async function callSingleGroup(groupNumber) {
+    if (!confirm(`グループ ${groupNumber} を呼び出しますか?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/admin/call-group`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                date: currentDate,
+                group_number: groupNumber
+            })
+        });
+        
+        if (response.ok) {
+            // 呼び出し後、画面を更新
+            loadCalledGroups();
+        } else {
+            alert('グループの呼び出しに失敗しました');
+        }
+    } catch (error) {
+        console.error('Error calling group:', error);
+        alert('グループの呼び出しに失敗しました');
+    }
 }
 
 async function callMultipleGroups() {
@@ -732,7 +950,7 @@ async function callMultipleGroups() {
         
         selectedMultiCallGroups.clear();
         alert('グループを呼び出しました');
-        loadNextGroup();
+        loadCalledGroups();
     } catch (error) {
         console.error('Error calling multiple groups:', error);
         alert('グループの呼び出しに失敗しました');
