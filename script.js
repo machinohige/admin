@@ -1,17 +1,18 @@
 // グローバル変数
 const API_BASE_URL = 'https://kunugida-reservation-admin-api-pv3b3g64na-an.a.run.app';
 let authToken = null;
-let currentTab = 'dashboard';
+let currentTab = 'groupCall';
 let currentDate = null;
 let allReservations = [];
 let updateInterval = null;
 let selectedReservationId = null;
+let currentGroupNumber = null;
 
 // 初期化
 document.addEventListener('DOMContentLoaded', () => {
     // 最初に日付を設定
     updateCurrentDate();
-    // 認証チェック（これによりloadDashboardが呼ばれる可能性がある）
+    // 認証チェック
     checkAuth();
     // 定期的に日付を更新
     setInterval(updateCurrentDate, 1000);
@@ -44,7 +45,6 @@ function updateCurrentDate() {
     const testDate = new Date('2025-11-01T10:00:00');
     if (now < testDate) {
         currentDate = '2025-11-01';
-        console.log('Using test date (before Nov 1):', currentDate);
         return;
     }
     
@@ -55,8 +55,6 @@ function updateCurrentDate() {
     } else {
         currentDate = '2025-11-02';
     }
-    
-    console.log('Current date set to:', currentDate);
 }
 
 // 営業終了メッセージ表示
@@ -125,16 +123,46 @@ function showMainScreen() {
     document.getElementById('loginScreen').classList.remove('active');
     document.getElementById('mainScreen').classList.add('active');
     
+    // 日付セレクタの設定
+    if (currentDate) {
+        document.getElementById('dateSelector').value = currentDate;
+    }
+    
     // データ取得開始
-    loadDashboard();
+    loadNextGroup();
     loadSettings();
     
-    // 自動更新開始(1分ごと)
+    // 自動更新開始(5秒ごと)
     updateInterval = setInterval(() => {
-        if (currentTab === 'dashboard') {
-            loadDashboard();
+        if (currentTab === 'groupCall') {
+            const waitingScreen = document.getElementById('waitingScreen');
+            const callingScreen = document.getElementById('callingScreen');
+            
+            if (waitingScreen.style.display !== 'none') {
+                loadNextGroup();
+            } else if (callingScreen.style.display !== 'none') {
+                loadCallingGroup();
+            }
         }
-    }, 60000);
+    }, 5000);
+}
+
+// 日付変更
+function changeDate() {
+    currentDate = document.getElementById('dateSelector').value;
+    
+    // 現在のタブに応じてデータを再読み込み
+    switch(currentTab) {
+        case 'groupCall':
+            loadNextGroup();
+            break;
+        case 'reservations':
+            loadAllReservations();
+            break;
+        case 'statistics':
+            loadStatistics();
+            break;
+    }
 }
 
 // タブ切り替え
@@ -155,8 +183,8 @@ function switchTab(tabName) {
     
     // タブごとのデータ読み込み
     switch(tabName) {
-        case 'dashboard':
-            loadDashboard();
+        case 'groupCall':
+            loadNextGroup();
             break;
         case 'reservations':
             loadAllReservations();
@@ -170,213 +198,72 @@ function switchTab(tabName) {
     }
 }
 
-// ダッシュボード読み込み - 改善されたエラーハンドリング
-async function loadDashboard() {
+// 次に呼び出すグループを読み込み
+async function loadNextGroup() {
     try {
-        // currentDateがnullの場合は設定
         if (!currentDate) {
             updateCurrentDate();
-            if (!currentDate) {
-                console.error('Failed to determine current date');
-                return;
-            }
+            if (!currentDate) return;
         }
         
-        console.log('Loading dashboard for date:', currentDate);
-        console.log('Using token:', authToken ? 'Token exists' : 'No token');
-        
-        const response = await fetch(`${API_BASE_URL}/api/admin/dashboard?date=${currentDate}`, {
+        const response = await fetch(`${API_BASE_URL}/api/admin/next-group?date=${currentDate}`, {
             headers: {
                 'Authorization': `Bearer ${authToken}`
             }
         });
         
-        console.log('Response status:', response.status);
-        console.log('Response headers:', [...response.headers.entries()]);
-        
-        // レスポンスのContent-Typeを確認
-        const contentType = response.headers.get('content-type');
-        
-        if (!contentType || !contentType.includes('application/json')) {
-            console.error('Expected JSON but got:', contentType);
-            const text = await response.text();
-            console.error('Response body (first 1000 chars):', text.substring(0, 1000));
-            
-            // HTMLが返ってきた場合の詳細なエラー
-            if (text.includes('<!DOCTYPE') || text.includes('<html')) {
-                throw new Error(`APIがHTMLを返しています。\nステータス: ${response.status}\n\nバックエンドでエラーが発生している可能性があります。Cloud Runのログを確認してください。`);
-            }
-            
-            throw new Error(`予期しないレスポンス形式: ${contentType}`);
-        }
-        
         const data = await response.json();
-        console.log('Dashboard data received:', data);
         
         if (response.ok) {
-            // 営業終了チェック
-            if (data.closed) {
-                showClosedMessage();
-                return;
-            }
-            
-            updateDashboard(data);
-            updateLastUpdateTime();
+            displayNextGroup(data);
         } else {
-            console.error('Dashboard API error:', data);
-            const errorMsg = data.error || JSON.stringify(data);
-            
-            // 認証エラーの場合はログアウト
-            if (response.status === 401) {
-                alert('セッションが切れました。再度ログインしてください。');
-                logout();
-                return;
-            }
-            
-            alert(`ダッシュボードの読み込みに失敗しました:\n\nステータス: ${response.status}\nエラー: ${errorMsg}`);
+            console.error('Error loading next group:', data);
         }
     } catch (error) {
-        console.error('Error loading dashboard:', error);
-        alert(`ダッシュボードの読み込みに失敗しました:\n\n${error.message}\n\nコンソールログを確認してください。`);
+        console.error('Error loading next group:', error);
     }
 }
 
-// ダッシュボード更新
-function updateDashboard(data) {
-    // 次に呼び出すグループ
-    const nextGroupNumber = document.getElementById('nextGroupNumber');
-    const nextGroupReservations = document.getElementById('nextGroupReservations');
-    const callGroupBtn = document.getElementById('callGroupBtn');
+// 次のグループを表示
+function displayNextGroup(data) {
+    const groupNumber = data.group_number;
+    const reservations = data.reservations || [];
     
-    if (data.next_group) {
-        nextGroupNumber.textContent = data.next_group.group_number;
-        nextGroupReservations.innerHTML = '';
-        
-        data.next_group.reservations.forEach(res => {
-            const div = document.createElement('div');
-            div.className = 'reservation-item' + (res.type === 'X' || res.type === 'Y' ? ' vip' : '');
-            div.innerHTML = `
-                <div class="reservation-info">
-                    <span class="reservation-number">${res.reservation_id}</span>
-                    <span class="reservation-details">${res.count}人 | ${res.type}</span>
-                </div>
-            `;
-            nextGroupReservations.appendChild(div);
-        });
-        
-        callGroupBtn.disabled = false;
-    } else {
-        nextGroupNumber.textContent = '-';
-        nextGroupReservations.textContent = '次のグループはありません';
-        callGroupBtn.disabled = true;
-    }
+    document.getElementById('waitingGroupNumber').textContent = groupNumber || '-';
     
-    // 呼び出し中のグループ
-    const callingGroupCard = document.getElementById('callingGroupCard');
-    const callingGroupNumber = document.getElementById('callingGroupNumber');
-    const callingGroupReservations = document.getElementById('callingGroupReservations');
+    const container = document.getElementById('waitingReservations');
     
-    if (data.calling_group) {
-        callingGroupCard.style.display = 'block';
-        callingGroupNumber.textContent = data.calling_group.group_number;
-        callingGroupReservations.innerHTML = '';
-        
-        data.calling_group.reservations.forEach(res => {
-            const div = document.createElement('div');
-            div.className = 'reservation-item' + (res.no_show_count > 0 ? ' no-show' : '');
-            div.innerHTML = `
-                <div class="reservation-info">
-                    <span class="reservation-number">${res.reservation_id}</span>
-                    <span class="reservation-details">${res.count}人 | ${res.type}</span>
-                    ${res.no_show_count > 0 ? `<span class="reservation-details" style="color: #f44336;">未来店 ${res.no_show_count}回目</span>` : ''}
-                </div>
-                <div class="reservation-actions">
-                    <button class="btn btn-success" onclick="markAsVisited('${res.reservation_id}')">来店</button>
-                    <button class="btn btn-danger" onclick="markAsNoShow('${res.reservation_id}')">来ない</button>
-                </div>
-            `;
-            callingGroupReservations.appendChild(div);
-        });
-    } else {
-        callingGroupCard.style.display = 'none';
-    }
-    
-    // 次の予約リスト
-    updateUpcomingList('upcomingReserved', data.upcoming_reserved || []);
-    updateUpcomingList('upcomingWalkIn', data.upcoming_walkin || []);
-    updateUpcomingList('upcomingVip', data.upcoming_vip || []);
-    
-    // 呼び出し済み・未来店
-    updateCalledNoShowList(data.called_no_show || []);
-}
-
-// 次の予約リスト更新
-function updateUpcomingList(elementId, reservations) {
-    const container = document.getElementById(elementId);
-    
-    if (reservations.length === 0) {
-        container.innerHTML = '<p class="empty-state">予約なし</p>';
-        return;
-    }
-    
-    container.innerHTML = '';
-    reservations.slice(0, 5).forEach(res => {
-        const div = document.createElement('div');
-        div.className = 'reservation-list-item' + (res.type === 'X' || res.type === 'Y' ? ' vip' : '');
-        div.innerHTML = `
-            <strong>${res.reservation_id}</strong>
-            ${res.count}人 | GROUP ${res.group}
-            ${res.time ? `| ${res.time}` : ''}
-        `;
-        container.appendChild(div);
-    });
-}
-
-// 呼び出し済み・未来店リスト更新
-function updateCalledNoShowList(reservations) {
-    const container = document.getElementById('calledNoShow');
-    
-    if (reservations.length === 0) {
-        container.innerHTML = '<p class="empty-state">該当なし</p>';
+    if (!groupNumber || reservations.length === 0) {
+        container.innerHTML = '<p class="loading-text">次のグループはありません</p>';
+        document.getElementById('callButton').disabled = true;
+        currentGroupNumber = null;
         return;
     }
     
     container.innerHTML = '';
     reservations.forEach(res => {
         const div = document.createElement('div');
-        div.className = 'called-item';
-        
-        const firstCallTime = new Date(res.first_call_time);
-        const now = new Date();
-        const minutesAgo = Math.floor((now - firstCallTime) / 60000);
+        div.className = 'reservation-card';
+        if (res.type === 'X' || res.type === 'Y') {
+            div.classList.add('vip');
+        }
         
         div.innerHTML = `
-            <div>
-                <strong>${res.reservation_id}</strong>
-                <span class="reservation-details">${res.count}人 | ${res.type}</span>
-            </div>
-            <div class="called-time">
-                初回呼び出し: ${minutesAgo}分前
+            <div class="reservation-info">
+                <div class="reservation-id">${res.reservation_id}</div>
+                <div class="reservation-details">${res.count}人 | ${res.type}${res.time ? ' | ' + res.time : ''}</div>
             </div>
         `;
         container.appendChild(div);
     });
+    
+    currentGroupNumber = groupNumber;
+    document.getElementById('callButton').disabled = false;
 }
 
-// 最終更新時刻表示
-function updateLastUpdateTime() {
-    const lastUpdate = document.getElementById('lastUpdate');
-    if (lastUpdate) {
-        const now = new Date();
-        lastUpdate.textContent = `最終更新: ${now.toLocaleTimeString('ja-JP')}`;
-    }
-}
-
-// グループ呼び出し
-async function callNextGroup() {
-    if (!confirm('このグループを呼び出しますか?')) {
-        return;
-    }
+// グループを呼び出す
+async function callGroup() {
+    if (!currentGroupNumber) return;
     
     try {
         const response = await fetch(`${API_BASE_URL}/api/admin/call-group`, {
@@ -385,11 +272,17 @@ async function callNextGroup() {
                 'Authorization': `Bearer ${authToken}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ date: currentDate })
+            body: JSON.stringify({
+                date: currentDate,
+                group_number: currentGroupNumber
+            })
         });
         
         if (response.ok) {
-            loadDashboard();
+            // 呼び出し中画面へ
+            document.getElementById('waitingScreen').style.display = 'none';
+            document.getElementById('callingScreen').style.display = 'block';
+            loadCallingGroup();
         } else {
             alert('グループの呼び出しに失敗しました');
         }
@@ -399,8 +292,94 @@ async function callNextGroup() {
     }
 }
 
-// 来店確認
-async function markAsVisited(reservationId) {
+// 呼び出し中のグループを読み込み
+async function loadCallingGroup() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/admin/calling-group?date=${currentDate}`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            displayCallingGroup(data);
+        } else {
+            console.error('Error loading calling group:', data);
+        }
+    } catch (error) {
+        console.error('Error loading calling group:', error);
+    }
+}
+
+// 呼び出し中のグループを表示
+function displayCallingGroup(data) {
+    const groupNumber = data.group_number;
+    const reservations = data.reservations || [];
+    
+    if (!groupNumber) {
+        // 呼び出し中のグループがない場合は待機画面に戻る
+        backToWaiting();
+        return;
+    }
+    
+    document.getElementById('callingGroupNumber').textContent = groupNumber;
+    
+    const container = document.getElementById('callingReservations');
+    container.innerHTML = '';
+    
+    let allProcessed = true;
+    let visitedCount = 0;
+    
+    reservations.forEach(res => {
+        const div = document.createElement('div');
+        div.className = 'reservation-card';
+        
+        if (res.type === 'X' || res.type === 'Y') {
+            div.classList.add('vip');
+        }
+        
+        if (res.status === 1) {
+            div.classList.add('visited');
+            visitedCount += res.count;
+        } else if (res.status === 3) {
+            div.classList.add('absent');
+        } else {
+            allProcessed = false;
+        }
+        
+        const buttons = (res.status === 0) ? `
+            <div class="reservation-actions">
+                <button class="btn btn-visit" onclick="markVisit('${res.reservation_id}')">
+                    来店
+                </button>
+                <button class="btn btn-absent" onclick="markAbsent('${res.reservation_id}')">
+                    不在
+                </button>
+            </div>
+        ` : '';
+        
+        div.innerHTML = `
+            <div class="reservation-info">
+                <div class="reservation-id">${res.reservation_id}</div>
+                <div class="reservation-details">${res.count}人 | ${res.type}${res.time ? ' | ' + res.time : ''}</div>
+                ${res.status === 1 ? '<div class="reservation-details" style="color: #4caf50;">✓ 来店済み</div>' : ''}
+                ${res.status === 3 ? '<div class="reservation-details" style="color: #ff6b6b;">✗ 不在</div>' : ''}
+            </div>
+            ${buttons}
+        `;
+        container.appendChild(div);
+    });
+    
+    // 全て処理済みの場合は完了画面へ
+    if (allProcessed) {
+        showCompletedScreen(groupNumber, visitedCount);
+    }
+}
+
+// 来店マーク
+async function markVisit(reservationId) {
     try {
         const response = await fetch(`${API_BASE_URL}/api/admin/reservations/${reservationId}/visit`, {
             method: 'POST',
@@ -410,7 +389,7 @@ async function markAsVisited(reservationId) {
         });
         
         if (response.ok) {
-            loadDashboard();
+            loadCallingGroup();
         } else {
             alert('来店確認に失敗しました');
         }
@@ -420,10 +399,10 @@ async function markAsVisited(reservationId) {
     }
 }
 
-// 未来店マーク
-async function markAsNoShow(reservationId) {
+// 不在マーク
+async function markAbsent(reservationId) {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/reservations/${reservationId}/no-show`, {
+        const response = await fetch(`${API_BASE_URL}/api/admin/reservations/${reservationId}/absent`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${authToken}`
@@ -431,14 +410,45 @@ async function markAsNoShow(reservationId) {
         });
         
         if (response.ok) {
-            loadDashboard();
+            loadCallingGroup();
         } else {
-            alert('未来店マークに失敗しました');
+            alert('不在マークに失敗しました');
         }
     } catch (error) {
-        console.error('Error marking as no-show:', error);
-        alert('未来店マークに失敗しました');
+        console.error('Error marking as absent:', error);
+        alert('不在マークに失敗しました');
     }
+}
+
+// 完了画面を表示
+function showCompletedScreen(groupNumber, visitorCount) {
+    document.getElementById('callingScreen').style.display = 'none';
+    document.getElementById('completedScreen').style.display = 'block';
+    
+    document.getElementById('completedGroupNumber').textContent = groupNumber;
+    document.getElementById('completedVisitorCount').textContent = `${visitorCount}名が入場しました`;
+    
+    // 3秒後に次のグループへ
+    let countdown = 3;
+    const countdownElem = document.getElementById('countdown');
+    
+    const timer = setInterval(() => {
+        countdown--;
+        countdownElem.textContent = `${countdown}秒後に次のグループへ...`;
+        
+        if (countdown <= 0) {
+            clearInterval(timer);
+            backToWaiting();
+        }
+    }, 1000);
+}
+
+// 待機画面に戻る
+function backToWaiting() {
+    document.getElementById('callingScreen').style.display = 'none';
+    document.getElementById('completedScreen').style.display = 'none';
+    document.getElementById('waitingScreen').style.display = 'block';
+    loadNextGroup();
 }
 
 // 全予約読み込み
@@ -499,8 +509,12 @@ function displayReservations(reservations) {
     reservations.forEach(res => {
         const tr = document.createElement('tr');
         
-        const statusText = res.status === 0 ? '予約受付' : res.status === 1 ? '来店済み' : 'キャンセル';
-        const statusClass = res.status === 0 ? 'active' : res.status === 1 ? 'completed' : 'cancelled';
+        const statusText = res.status === 0 ? '予約受付' : 
+                          res.status === 1 ? '来店済み' : 
+                          res.status === 2 ? 'キャンセル' : '不在';
+        const statusClass = res.status === 0 ? 'active' : 
+                           res.status === 1 ? 'completed' : 
+                           res.status === 2 ? 'cancelled' : 'absent';
         
         tr.innerHTML = `
             <td><strong>${res.reservation_id}</strong></td>
@@ -526,7 +540,9 @@ function showReservationDetail(reservationId) {
     selectedReservationId = reservationId;
     
     const modalContent = document.getElementById('modalContent');
-    const statusText = reservation.status === 0 ? '予約受付' : reservation.status === 1 ? '来店済み' : 'キャンセル';
+    const statusText = reservation.status === 0 ? '予約受付' : 
+                      reservation.status === 1 ? '来店済み' : 
+                      reservation.status === 2 ? 'キャンセル' : '不在';
     
     modalContent.innerHTML = `
         <div class="form-grid">
@@ -620,12 +636,14 @@ async function createManualReservation() {
     const time = document.getElementById('newResTime').value;
     
     if (!type || !count) {
-        alert('必須項目を入力してください');
+        document.getElementById('newResError').textContent = '必須項目を入力してください';
+        document.getElementById('newResError').style.display = 'block';
         return;
     }
     
     if ((type === 'X' || type === 'Y') && !time) {
-        alert('関係者予約には時刻を指定してください');
+        document.getElementById('newResError').textContent = '関係者予約には時刻を指定してください';
+        document.getElementById('newResError').style.display = 'block';
         return;
     }
     
@@ -699,75 +717,78 @@ function updateStatistics(data) {
     document.getElementById('statCancelled').textContent = data.cancelled || 0;
     document.getElementById('statWaiting').textContent = data.waiting || 0;
     
-    // タイプ別グラフ
-    const typeCtx = document.getElementById('typeChart');
-    if (typeCtx && data.by_type) {
-        new Chart(typeCtx, {
-            type: 'bar',
-            data: {
-                labels: Object.keys(data.by_type),
-                datasets: [{
-                    label: '予約数',
-                    data: Object.values(data.by_type),
-                    backgroundColor: '#000000',
-                    borderColor: '#000000',
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
+    // Chart.jsが読み込まれている場合のみグラフを表示
+    if (typeof Chart !== 'undefined') {
+        // タイプ別グラフ
+        const typeCtx = document.getElementById('typeChart');
+        if (typeCtx && data.by_type) {
+            new Chart(typeCtx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(data.by_type),
+                    datasets: [{
+                        label: '予約数',
+                        data: Object.values(data.by_type),
+                        backgroundColor: '#000000',
+                        borderColor: '#000000',
+                        borderWidth: 2
+                    }]
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            stepSize: 1
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
                         }
                     }
                 }
-            }
-        });
-    }
-    
-    // 時間別グラフ
-    const timeCtx = document.getElementById('timeChart');
-    if (timeCtx && data.by_hour) {
-        new Chart(timeCtx, {
-            type: 'line',
-            data: {
-                labels: Object.keys(data.by_hour),
-                datasets: [{
-                    label: '来店数',
-                    data: Object.values(data.by_hour),
-                    backgroundColor: 'rgba(0, 0, 0, 0.1)',
-                    borderColor: '#000000',
-                    borderWidth: 2,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
+            });
+        }
+        
+        // 時間別グラフ
+        const timeCtx = document.getElementById('timeChart');
+        if (timeCtx && data.by_hour) {
+            new Chart(timeCtx, {
+                type: 'line',
+                data: {
+                    labels: Object.keys(data.by_hour),
+                    datasets: [{
+                        label: '来店数',
+                        data: Object.values(data.by_hour),
+                        backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                        borderColor: '#000000',
+                        borderWidth: 2,
+                        fill: true
+                    }]
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            stepSize: 1
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
                         }
                     }
                 }
-            }
-        });
+            });
+        }
     }
 }
 
