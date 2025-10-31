@@ -3,337 +3,215 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>予約管理システム - グループ呼び出し</title>
+    <title>予約管理システム</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <!-- ログイン画面 -->
-    <div id="loginScreen" class="screen active">
+    <div id="login-screen" class="screen">
         <div class="login-container">
             <h1>予約管理システム</h1>
-            <p class="subtitle">グループ呼び出し版</p>
-            <form id="loginForm" onsubmit="event.preventDefault(); login();">
-                <input type="password" id="passwordInput" placeholder="パスワード" required>
-                <button type="submit">ログイン</button>
-            </form>
-            <div id="loginError" class="error-message" style="display: none;">
-                パスワードが間違っています
+            <div class="login-form">
+                <input type="password" id="password-input" placeholder="パスワードを入力">
+                <button id="login-btn">ログイン</button>
+                <p id="login-error" class="error-message"></p>
             </div>
         </div>
     </div>
 
     <!-- メイン画面 -->
-    <div id="mainScreen" class="screen">
+    <div id="main-screen" class="screen hidden">
         <!-- ヘッダー -->
-        <div class="header">
-            <h1>予約管理システム</h1>
-            <div class="header-info">
-                <span id="currentDate"></span>
-                <select id="dateSelector" onchange="changeDate()">
-                    <option value="2025-11-01">11月1日</option>
-                    <option value="2025-11-02">11月2日</option>
-                </select>
-                <button class="logout-btn" onclick="logout()">ログアウト</button>
+        <header class="header">
+            <div class="header-left">
+                <div class="time-display">
+                    <span>現在時刻: <strong id="current-time">--</strong></span>
+                    <span>最終更新: <strong id="last-update">--</strong></span>
+                </div>
+                <div class="date-selector">
+                    <label>
+                        <input type="radio" name="date" value="11/1" checked> 11/1
+                    </label>
+                    <label>
+                        <input type="radio" name="date" value="11/2"> 11/2
+                    </label>
+                </div>
             </div>
-        </div>
+            <div class="header-right">
+                <button id="refresh-btn" class="btn-secondary">更新</button>
+                <button id="logout-btn" class="btn-secondary">ログアウト</button>
+            </div>
+        </header>
 
         <!-- タブナビゲーション -->
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('groupCall')">グループ呼び出し</button>
-            <button class="tab-btn" onclick="switchTab('reservations')">予約一覧</button>
-            <button class="tab-btn" onclick="switchTab('create')">予約作成</button>
-            <button class="tab-btn" onclick="switchTab('statistics')">統計</button>
-            <button class="tab-btn" onclick="switchTab('settings')">設定</button>
-        </div>
+        <nav class="tabs">
+            <button class="tab-btn active" data-tab="group">グループ呼び出し</button>
+            <button class="tab-btn" data-tab="list">予約一覧</button>
+            <button class="tab-btn" data-tab="add">予約追加</button>
+            <button class="tab-btn" data-tab="stats">統計</button>
+            <button class="tab-btn" data-tab="settings">設定</button>
+        </nav>
 
-        <!-- 営業終了メッセージ -->
-        <div id="closedMessage" class="tab-content" style="display: none;">
-            <div class="closed-message">
-                <h2>営業終了</h2>
-                <p>本日の営業は終了しました</p>
-            </div>
-        </div>
-
-        <!-- グループ呼び出しタブ -->
-        <div id="groupCallTab" class="tab-content active">
-            <!-- 3つの大枠のコンテナ -->
-            <div class="group-call-container">
-                <!-- 1. 待機中グループ一覧（優先順位順） -->
-                <div class="group-section">
-                    <div class="section-header">
-                        <h2>📋 待機中グループ（優先順）</h2>
-                        <p class="section-description">優先予約を含むグループが先頭に表示されます</p>
-                    </div>
-                    <div id="upcomingGroupsList" class="upcoming-groups-list">
-                        <p class="loading-text">読み込み中...</p>
-                    </div>
-                </div>
-
-                <!-- 2. 同時呼び出しグループ選択 -->
-                <div class="group-section">
-                    <div class="section-header">
-                        <h2>📢 同時呼び出し</h2>
-                        <p class="section-description">複数のグループを同時に呼び出すことができます</p>
-                    </div>
-                    <div id="multiCallGroupsList" class="multi-call-groups-list">
-                        <p class="loading-text">読み込み中...</p>
-                    </div>
-                </div>
-
-                <!-- 3. 関係者予約スケジュール -->
-                <div class="group-section">
-                    <div class="section-header">
-                        <h2>👥 関係者予約スケジュール</h2>
-                        <p class="section-description">時刻指定の関係者予約（X/Y）の予定を表示</p>
-                    </div>
-                    <div id="vipScheduleList" class="vip-schedule-list">
-                        <p class="loading-text">読み込み中...</p>
-                    </div>
-                </div>
-
-                <!-- 4. 呼び出し済みグループ（来店/不在選択） -->
-                <div class="group-section" style="background: #f0f8ff;">
-                    <div class="section-header">
-                        <h2>🔔 呼び出し中のグループ</h2>
-                        <p class="section-description">来店・不在の選択ができます</p>
-                    </div>
-                    <div id="calledGroupsList" class="called-groups-list">
-                        <p class="loading-text">読み込み中...</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 旧画面（非表示） -->
-            <div style="display: none;">
-                <!-- 待機画面 -->
-                <div id="waitingScreen" class="group-call-screen waiting">
-                    <div class="screen-title">次に呼び出すグループ</div>
-                    <div class="group-number-display" id="waitingGroupNumber">-</div>
-                    <div class="reservations-in-group" id="waitingReservations">
-                        <p class="loading-text">読み込み中...</p>
-                    </div>
-                    <button class="btn btn-call" id="callButton" onclick="callGroup()" disabled>
-                        呼び出す
-                    </button>
-                </div>
-
-                <!-- 呼び出し中画面 -->
-                <div id="callingScreen" class="group-call-screen calling" style="display: none;">
-                    <div class="screen-title">呼び出し中</div>
-                    <div class="group-number-display" id="callingGroupNumber">-</div>
-                    <div class="reservations-in-group" id="callingReservations"></div>
-                    <button class="btn btn-back" onclick="backToWaiting()">
-                        戻る
-                    </button>
-                </div>
-
-                <!-- 完了画面 -->
-                <div id="completedScreen" class="group-call-screen completed" style="display: none;">
-                    <div class="completion-message">✓ 入場完了</div>
-                    <div class="group-number-display" id="completedGroupNumber">-</div>
-                    <div class="visitor-count" id="completedVisitorCount">-</div>
-                    <div class="countdown" id="countdown">3秒後に次のグループへ...</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 予約一覧タブ -->
-        <div id="reservationsTab" class="tab-content">
-            <div class="card">
-                <h2>予約一覧</h2>
-                
-                <!-- 検索バー -->
-                <div class="search-bar">
-                    <input type="text" id="searchInput" placeholder="予約番号で検索">
-                    <select id="typeFilter">
-                        <option value="">全タイプ</option>
-                        <option value="A">A (11/1 予約)</option>
-                        <option value="B">B (11/2 予約)</option>
-                        <option value="C">C (11/1 当日)</option>
-                        <option value="D">D (11/2 当日)</option>
-                        <option value="X">X (11/1 関係者)</option>
-                        <option value="Y">Y (11/2 関係者)</option>
-                    </select>
-                    <select id="statusFilter">
-                        <option value="">全ステータス</option>
-                        <option value="0">予約受付</option>
-                        <option value="1">来店済み</option>
-                        <option value="2">キャンセル</option>
-                        <option value="3">不在</option>
-                    </select>
-                    <button class="btn" onclick="searchReservations()">検索</button>
-                </div>
-
-                <!-- テーブル -->
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>予約番号</th>
-                                <th>タイプ</th>
-                                <th>人数</th>
-                                <th>グループ</th>
-                                <th>時間</th>
-                                <th>ステータス</th>
-                                <th>作成日時</th>
-                                <th>操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="reservationsTableBody">
-                            <tr><td colspan="8" class="empty-state">読み込み中...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- 予約作成タブ -->
-        <div id="createTab" class="tab-content">
-            <div class="card">
-                <h2>新規予約作成</h2>
-                
-                <form id="newReservationForm" onsubmit="event.preventDefault(); createManualReservation();">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="newResType">予約タイプ</label>
-                            <select id="newResType" required onchange="toggleTimeInput()">
-                                <option value="">選択してください</option>
-                                <option value="C">C - 当日来店 (11/1)</option>
-                                <option value="D">D - 当日来店 (11/2)</option>
-                                <option value="X">X - 関係者 (11/1)</option>
-                                <option value="Y">Y - 関係者 (11/2)</option>
-                            </select>
+        <!-- タブコンテンツ -->
+        <div class="content">
+            <!-- グループ呼び出し画面 -->
+            <div id="tab-group" class="tab-content active">
+                <div class="group-container">
+                    <!-- 左列: 呼び出しエリア -->
+                    <div class="left-column">
+                        <div class="call-area">
+                            <h3>呼び出しグループ <span id="group-count">0/4人</span></h3>
+                            <div id="call-group" class="drop-zone">
+                                <p class="placeholder">予約をドラッグ&ドロップ</p>
+                            </div>
+                            <button id="accept-btn" class="btn-primary" disabled>受付</button>
                         </div>
-                        
-                        <div class="form-group">
-                            <label for="newResCount">人数</label>
-                            <select id="newResCount" required>
-                                <option value="">選択してください</option>
-                                <option value="1">1人</option>
-                                <option value="2">2人</option>
-                                <option value="3">3人</option>
-                                <option value="4">4人</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group" id="timeInputGroup" style="display: none;">
-                            <label for="newResTime">指定時刻（関係者のみ）</label>
-                            <input type="time" id="newResTime">
+                        <div class="absent-area">
+                            <h3>不在リスト</h3>
+                            <div id="absent-list" class="absent-list"></div>
                         </div>
                     </div>
-                    
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">予約を作成</button>
+
+                    <!-- 中央列: 通常予約 -->
+                    <div class="center-column">
+                        <h3>待機中（通常）</h3>
+                        <div id="normal-queue" class="queue-list"></div>
                     </div>
-                </form>
-                
-                <div id="newResSuccess" class="success-message" style="display: none;">
-                    ✅ 予約を作成しました: <strong id="newResNumber"></strong>
-                </div>
-                <div id="newResError" class="error-message" style="display: none;"></div>
-            </div>
-        </div>
 
-        <!-- 統計タブ -->
-        <div id="statisticsTab" class="tab-content">
-            <!-- 統計カード -->
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <h3>総予約数</h3>
-                    <div class="stat-number" id="statTotalReservations">0</div>
-                </div>
-                <div class="stat-card">
-                    <h3>来店済み</h3>
-                    <div class="stat-number" id="statVisited">0</div>
-                </div>
-                <div class="stat-card">
-                    <h3>キャンセル</h3>
-                    <div class="stat-number" id="statCancelled">0</div>
-                </div>
-                <div class="stat-card">
-                    <h3>待機中</h3>
-                    <div class="stat-number" id="statWaiting">0</div>
+                    <!-- 右列: プライオリティ予約 -->
+                    <div class="right-column">
+                        <h3>待機中（関係者）</h3>
+                        <div id="priority-queue" class="queue-list"></div>
+                    </div>
                 </div>
             </div>
 
-            <!-- タイプ別グラフ -->
-            <div class="card">
-                <h2>タイプ別内訳</h2>
-                <div class="chart-container">
-                    <canvas id="typeChart"></canvas>
+            <!-- 予約一覧画面 -->
+            <div id="tab-list" class="tab-content">
+                <div class="list-controls">
+                    <div class="filters">
+                        <select id="filter-status">
+                            <option value="">全てのステータス</option>
+                            <option value="0">待機中</option>
+                            <option value="1">来店済み</option>
+                        </select>
+                        <select id="filter-count">
+                            <option value="">全ての人数</option>
+                            <option value="1">1人</option>
+                            <option value="2">2人</option>
+                            <option value="3">3人</option>
+                            <option value="4">4人</option>
+                        </select>
+                        <button id="apply-filters" class="btn-secondary">適用</button>
+                    </div>
+                </div>
+                <div id="reservation-list" class="reservation-list"></div>
+            </div>
+
+            <!-- 予約追加画面 -->
+            <div id="tab-add" class="tab-content">
+                <div class="add-form">
+                    <h3>予約を手動追加</h3>
+                    <div class="form-group">
+                        <label>日付</label>
+                        <select id="add-date">
+                            <option value="11/1">11/1</option>
+                            <option value="11/2">11/2</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>予約タイプ</label>
+                        <select id="add-type">
+                            <option value="C">C（通常・11/1）</option>
+                            <option value="D">D（通常・11/2）</option>
+                            <option value="X">X（関係者・11/1）</option>
+                            <option value="Y">Y（関係者・11/2）</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>人数</label>
+                        <select id="add-count">
+                            <option value="1">1人</option>
+                            <option value="2">2人</option>
+                            <option value="3">3人</option>
+                            <option value="4">4人</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="time-group" style="display: none;">
+                        <label>予約時間（HH:MM）</label>
+                        <input type="time" id="add-time">
+                    </div>
+                    <button id="submit-reservation" class="btn-primary">予約追加</button>
+                    <p id="add-message" class="message"></p>
                 </div>
             </div>
 
-            <!-- 時間別グラフ -->
-            <div class="card">
-                <h2>時間別来店数</h2>
-                <div class="chart-container">
-                    <canvas id="timeChart"></canvas>
+            <!-- 統計画面 -->
+            <div id="tab-stats" class="tab-content">
+                <div class="stats-container">
+                    <h3>本日の予約状況</h3>
+                    <div class="stats-cards">
+                        <div class="stat-card">
+                            <div class="stat-label">総予約数</div>
+                            <div class="stat-value" id="stat-total">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">来店済み</div>
+                            <div class="stat-value" id="stat-completed">0組</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">待機中</div>
+                            <div class="stat-value" id="stat-waiting">0組</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">総人数</div>
+                            <div class="stat-value" id="stat-people">0人</div>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <h4>時間帯別予約数（10:00-15:00）</h4>
+                        <canvas id="hourly-chart"></canvas>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- 設定タブ -->
-        <div id="settingsTab" class="tab-content">
-            <div class="card">
-                <h2>システム設定</h2>
-                
-                <div class="settings-section">
+            <!-- 設定画面 -->
+            <div id="tab-settings" class="tab-content">
+                <div class="settings-container">
+                    <h3>システム設定</h3>
                     <div class="setting-item">
-                        <div class="setting-info">
-                            <h3>予約受付</h3>
-                            <p>Webサイトからの予約受付を有効化</p>
-                        </div>
-                        <label class="toggle">
-                            <input type="checkbox" id="settingReception" onchange="updateSetting('reception')">
-                            <span class="toggle-slider"></span>
+                        <label class="switch-label">
+                            <span>予約受付</span>
+                            <small>Webサイトからの予約受付を有効化</small>
+                        </label>
+                        <label class="switch">
+                            <input type="checkbox" id="setting-reception">
+                            <span class="slider"></span>
                         </label>
                     </div>
-                    
                     <div class="setting-item">
-                        <div class="setting-info">
-                            <h3>待ち状況表示</h3>
-                            <p>Webサイトでの待ち状況表示を有効化</p>
-                        </div>
-                        <label class="toggle">
-                            <input type="checkbox" id="settingJoukyou" onchange="updateSetting('joukyou')">
-                            <span class="toggle-slider"></span>
+                        <label class="switch-label">
+                            <span>待ち状況表示</span>
+                            <small>Webサイトでの待ち状況表示を有効化</small>
+                        </label>
+                        <label class="switch">
+                            <input type="checkbox" id="setting-joukyou">
+                            <span class="slider"></span>
                         </label>
                     </div>
-                    
                     <div class="setting-item">
-                        <div class="setting-info">
-                            <h3>自動受付停止</h3>
-                            <p>営業時間外は自動的に受付を停止</p>
-                        </div>
-                        <label class="toggle">
-                            <input type="checkbox" id="settingJidou" onchange="updateSetting('jidou')">
-                            <span class="toggle-slider"></span>
+                        <label class="switch-label">
+                            <span>自動受付停止</span>
+                            <small>営業時間外は自動的に受付を停止</small>
+                        </label>
+                        <label class="switch">
+                            <input type="checkbox" id="setting-jidou">
+                            <span class="slider"></span>
                         </label>
                     </div>
+                    <button id="save-settings" class="btn-primary">設定を保存</button>
+                    <p id="settings-message" class="message"></p>
                 </div>
-
-                <div class="settings-info">
-                    <h3>設定情報</h3>
-                    <ul>
-                        <li><strong>予約受付:</strong> ユーザーがWebサイトから予約できるかを制御</li>
-                        <li><strong>待ち状況表示:</strong> 現在の待ち状況をWebサイトに表示</li>
-                        <li><strong>自動受付停止:</strong> 営業時間を考慮して自動的に受付を停止</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 予約詳細モーダル -->
-    <div id="reservationModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <h2>予約詳細</h2>
-            <div id="modalContent"></div>
-            <div class="modal-actions">
-                <button class="btn btn-danger" onclick="cancelReservation()">予約をキャンセル</button>
-                <button class="btn" onclick="closeModal()">閉じる</button>
             </div>
         </div>
     </div>
