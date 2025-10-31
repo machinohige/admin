@@ -168,6 +168,149 @@ body {
 }
 
 /* グループ呼び出し画面 */
+.group-call-container {
+    display: grid;
+    gap: 30px;
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+.group-section {
+    background: #ffffff;
+    border: 2px solid #000000;
+    padding: 25px;
+    border-radius: 8px;
+}
+
+.section-header {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #f5f5f5;
+}
+
+.section-header h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.section-description {
+    font-size: 13px;
+    color: #666666;
+    margin: 0;
+}
+
+/* 1. 待機中グループ一覧 */
+.upcoming-groups-list {
+    display: grid;
+    gap: 12px;
+}
+
+.group-preview-card {
+    background: #f8f9fa;
+    border: 2px solid #e0e0e0;
+    padding: 16px 20px;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.group-preview-card:hover {
+    background: #ffffff;
+    border-color: #000000;
+    transform: translateX(2px);
+}
+
+/* 2. 同時呼び出しグループ */
+.multi-call-groups-list {
+    display: grid;
+    gap: 10px;
+}
+
+.multi-call-card {
+    background: #fafafa;
+    border: 2px solid #e0e0e0;
+    padding: 14px 18px;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.multi-call-card:hover {
+    border-color: #999;
+}
+
+/* 3. 関係者予約スケジュール */
+.vip-schedule-list {
+    display: grid;
+    gap: 12px;
+}
+
+.vip-schedule-card {
+    background: #fffef0;
+    border: 2px solid #ffd700;
+    padding: 16px 20px;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.vip-schedule-card:hover {
+    border-color: #ffc700;
+    transform: translateX(2px);
+}
+
+.vip-schedule-card.completed {
+    background: #f5f5f5;
+    border-color: #e0e0e0;
+    opacity: 0.7;
+}
+
+.vip-schedule-card.cancelled {
+    background: #ffebee;
+    border-color: #f44336;
+    opacity: 0.6;
+}
+
+/* 4. 呼び出し中のグループ */
+.called-groups-list {
+    display: grid;
+    gap: 16px;
+}
+
+.called-group-card {
+    background: #ffffff;
+    border: 2px solid #2196f3;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(33, 150, 243, 0.15);
+}
+
+.reservation-status-card {
+    background: #f8f9fa;
+    border: 2px solid #e0e0e0;
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    transition: all 0.2s;
+}
+
+.reservation-status-card:last-child {
+    margin-bottom: 0;
+}
+
+.reservation-status-card.status-waiting {
+    border-left: 4px solid #2196f3;
+}
+
+.reservation-status-card.status-visited {
+    background: #e8f5e9;
+    border-left: 4px solid #4caf50;
+    opacity: 0.8;
+}
+
+.reservation-status-card:hover {
+    transform: translateX(2px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
 .group-call-screen {
     text-align: center;
     padding: 40px 20px;

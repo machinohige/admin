@@ -131,8 +131,28 @@ def get_next_group():
             if res_date != date:
                 continue
             
-            # priority=Trueかつstatus=0の予約
-            if data.get('priority', False) and data.get('status', 0) == 0:
+            # priority=Trueかつstatus=0の予約で、グループが割り当てられていないもの
+            res_status = data.get('status', 0)
+            if data.get('priority', False) and res_status == 0 and not data.get('group'):
+                # 不在から15分経過チェック
+                absent_at = data.get('absent_at')
+                if absent_at:
+                    try:
+                        absent_time = datetime.fromisoformat(absent_at)
+                        elapsed = (now - absent_time).total_seconds() / 60  # 分単位
+                        
+                        if elapsed >= 15:
+                            # 15分経過したのでキャンセルに変更
+                            print(f"Priority timeout for {res_id}: {elapsed:.1f} minutes elapsed")
+                            db.collection('reservation').document(res_id).update({
+                                'status': 2,  # キャンセル
+                                'priority': False,
+                                'cancelled_reason': 'priority_timeout'
+                            })
+                            continue  # このループをスキップ
+                    except Exception as e:
+                        print(f"Error parsing absent_at for {res_id}: {e}")
+                
                 priority_reservations.append({
                     'id': res_id,
                     'count': data.get('count', 0),
@@ -141,6 +161,7 @@ def get_next_group():
         
         # 優先予約がある場合、次のグループに追加
         if priority_reservations:
+            print(f"Found {len(priority_reservations)} priority reservations without group assignment")
             next_group_num = create_priority_group(priority_reservations, group_collection)
             if next_group_num:
                 # 作成したグループの情報を返す
@@ -153,13 +174,35 @@ def get_next_group():
                         res_doc = db.collection('reservation').document(res_id).get()
                         if res_doc.exists:
                             res_data = res_doc.to_dict()
-                            if res_data.get('status', 0) == 0:
+                            res_status = res_data.get('status', 0)
+                            
+                            # 優先予約の15分タイムアウトチェック
+                            if res_data.get('priority', False) and res_status == 0:
+                                absent_at = res_data.get('absent_at')
+                                if absent_at:
+                                    try:
+                                        absent_time = datetime.fromisoformat(absent_at)
+                                        elapsed = (datetime.now() - absent_time).total_seconds() / 60
+                                        
+                                        if elapsed >= 15:
+                                            print(f"Priority timeout for {res_id}: {elapsed:.1f} minutes")
+                                            db.collection('reservation').document(res_id).update({
+                                                'status': 2,
+                                                'priority': False,
+                                                'cancelled_reason': 'priority_timeout'
+                                            })
+                                            continue
+                                    except Exception as e:
+                                        print(f"Error parsing absent_at: {e}")
+                            
+                            # status=0（待機中、優先予約含む）の予約のみ
+                            if res_status == 0:
                                 reservations.append({
                                     'reservation_id': res_id,
                                     'count': res_data.get('count', 0),
                                     'type': res_id[0] if len(res_id) > 0 else 'X',
                                     'time': res_data.get('time'),
-                                    'status': res_data.get('status', 0),
+                                    'status': res_status,
                                     'priority': res_data.get('priority', False)
                                 })
                     
@@ -190,8 +233,30 @@ def get_next_group():
                 res_doc = db.collection('reservation').document(res_id).get()
                 if res_doc.exists:
                     res_data = res_doc.to_dict()
-                    # status=0（待機中）またはstatus=3（不在マーク、優先あり）のみ
-                    if res_data.get('status', 0) == 0:
+                    res_status = res_data.get('status', 0)
+                    
+                    # 優先予約の15分タイムアウトチェック
+                    if res_data.get('priority', False) and res_status == 0:
+                        absent_at = res_data.get('absent_at')
+                        if absent_at:
+                            try:
+                                absent_time = datetime.fromisoformat(absent_at)
+                                elapsed = (now - absent_time).total_seconds() / 60
+                                
+                                if elapsed >= 15:
+                                    # 15分経過したのでキャンセル
+                                    print(f"Priority timeout for {res_id} in group: {elapsed:.1f} minutes")
+                                    db.collection('reservation').document(res_id).update({
+                                        'status': 2,
+                                        'priority': False,
+                                        'cancelled_reason': 'priority_timeout'
+                                    })
+                                    continue
+                            except Exception as e:
+                                print(f"Error parsing absent_at: {e}")
+                    
+                    # status=0（待機中、優先予約含む）の予約のみ
+                    if res_status == 0:
                         if res_data.get('priority', False):
                             has_priority = True
                         reservations.append({
@@ -199,7 +264,7 @@ def get_next_group():
                             'count': res_data.get('count', 0),
                             'type': res_id[0] if len(res_id) > 0 else 'X',
                             'time': res_data.get('time'),
-                            'status': res_data.get('status', 0),
+                            'status': res_status,
                             'priority': res_data.get('priority', False)
                         })
             
@@ -210,6 +275,7 @@ def get_next_group():
                     'reservations': reservations,
                     'has_priority': has_priority
                 })
+            # 予約が全て処理済みの場合は次のグループへ
         
         return jsonify({'group_number': None, 'reservations': []})
     except Exception as e:
@@ -267,9 +333,10 @@ def reset_group():
         print(f"Error in reset_group: {e}")
         return jsonify({'error': str(e)}), 500
 
-# 優先予約用のグループを作成
 def create_priority_group(priority_reservations, group_collection):
     try:
+        print(f"Creating priority group for {len(priority_reservations)} reservations")
+        
         # 既存のグループ番号を取得
         groups = db.collection(group_collection).stream()
         existing_nums = set()
@@ -299,7 +366,34 @@ def create_priority_group(priority_reservations, group_collection):
                 current_group_reservations.append(res['id'])
                 current_count += res['count']
                 
-                # グループ番号を更新
+                # 既存のグループから削除（もしあれば）
+                res_doc = db.collection('reservation').document(res['id']).get()
+                if res_doc.exists:
+                    res_data = res_doc.to_dict()
+                    old_group = res_data.get('group')
+                    
+                    if old_group:
+                        # 日付を判定
+                        if res_data.get('date'):
+                            old_date = res_data['date']
+                        else:
+                            old_res_type = res['id'][0] if len(res['id']) > 0 else 'X'
+                            old_date = '2025-11-01' if old_res_type in ['A', 'C', 'X'] else '2025-11-02'
+                        
+                        old_group_collection = 'group' if old_date == '2025-11-01' else 'group2'
+                        
+                        # 古いグループから削除
+                        old_group_doc = db.collection(old_group_collection).document(str(old_group)).get()
+                        if old_group_doc.exists:
+                            old_group_data = old_group_doc.to_dict()
+                            old_reservations = old_group_data.get('reservation', [])
+                            if res['id'] in old_reservations:
+                                old_reservations.remove(res['id'])
+                                db.collection(old_group_collection).document(str(old_group)).update({
+                                    'reservation': old_reservations
+                                })
+                
+                # 新しいグループ番号を更新
                 db.collection('reservation').document(res['id']).update({
                     'group': new_group_num
                 })
@@ -349,14 +443,38 @@ def get_calling_group():
                 res_doc = db.collection('reservation').document(res_id).get()
                 if res_doc.exists:
                     res_data = res_doc.to_dict()
-                    reservations.append({
-                        'reservation_id': res_id,
-                        'count': res_data.get('count', 0),
-                        'type': res_id[0] if len(res_id) > 0 else 'X',
-                        'time': res_data.get('time'),
-                        'status': res_data.get('status', 0),
-                        'priority': res_data.get('priority', False)
-                    })
+                    res_status = res_data.get('status', 0)
+                    
+                    # 優先予約の15分タイムアウトチェック
+                    if res_data.get('priority', False) and res_status == 0:
+                        absent_at = res_data.get('absent_at')
+                        if absent_at:
+                            try:
+                                absent_time = datetime.fromisoformat(absent_at)
+                                elapsed = (datetime.now() - absent_time).total_seconds() / 60
+                                
+                                if elapsed >= 15:
+                                    print(f"Priority timeout in calling group {res_id}: {elapsed:.1f} minutes")
+                                    db.collection('reservation').document(res_id).update({
+                                        'status': 2,
+                                        'priority': False,
+                                        'cancelled_reason': 'priority_timeout'
+                                    })
+                                    continue
+                            except Exception as e:
+                                print(f"Error parsing absent_at: {e}")
+                    
+                    # status=0（待機中、優先予約含む）の予約を返す
+                    # 優先予約は「来店」ボタンで処理が必要（フロント側で未処理扱い）
+                    if res_status == 0:
+                        reservations.append({
+                            'reservation_id': res_id,
+                            'count': res_data.get('count', 0),
+                            'type': res_id[0] if len(res_id) > 0 else 'X',
+                            'time': res_data.get('time'),
+                            'status': res_status,
+                            'priority': res_data.get('priority', False)
+                        })
             
             return jsonify({
                 'group_number': group_num,
@@ -391,18 +509,51 @@ def mark_visit(res_id):
 @require_auth
 def mark_absent(res_id):
     try:
-        # status=3（不在）にマーク、優先フラグを付与
+        # 予約の現在のグループを取得
+        res_doc = db.collection('reservation').document(res_id).get()
+        if not res_doc.exists:
+            return jsonify({'error': 'Reservation not found'}), 404
+        
+        res_data = res_doc.to_dict()
+        old_group = res_data.get('group')
+        
+        # status=0（来店前）に戻し、優先フラグを付与、グループをクリア
         db.collection('reservation').document(res_id).update({
-            'status': 3,
+            'status': 0,
             'priority': True,
-            'absent_at': datetime.now().isoformat()
+            'absent_at': datetime.now().isoformat(),
+            'group': firestore.DELETE_FIELD  # グループから切り離す
         })
         
-        # 空いた枠を補充
-        fill_vacant_slot(res_id)
+        # 元のグループから削除
+        if old_group:
+            # 日付を判定（res_dataのdateフィールドを優先）
+            if res_data.get('date'):
+                date = res_data['date']
+            else:
+                res_type = res_id[0] if len(res_id) > 0 else 'X'
+                date = '2025-11-01' if res_type in ['A', 'C', 'X'] else '2025-11-02'
+            
+            group_collection = 'group' if date == '2025-11-01' else 'group2'
+            
+            group_doc = db.collection(group_collection).document(str(old_group)).get()
+            if group_doc.exists:
+                group_data = group_doc.to_dict()
+                reservations = group_data.get('reservation', [])
+                if res_id in reservations:
+                    reservations.remove(res_id)
+                    db.collection(group_collection).document(str(old_group)).update({
+                        'reservation': reservations
+                    })
+            
+            # 空いた枠を補充
+            fill_vacant_slot(res_id)
         
         return jsonify({'success': True})
     except Exception as e:
+        print(f"Error in mark_absent: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 # 空いた枠を補充する
@@ -415,26 +566,34 @@ def fill_vacant_slot(absent_res_id):
         
         absent_data = absent_doc.to_dict()
         absent_count = absent_data.get('count', 0)
-        group_num = absent_data.get('group')
         
-        if not group_num:
-            return
+        # 日付を判定（absent_dataのdateフィールドを優先）
+        if absent_data.get('date'):
+            date = absent_data['date']
+        else:
+            res_type = absent_res_id[0] if len(absent_res_id) > 0 else 'X'
+            date = '2025-11-01' if res_type in ['A', 'C', 'X'] else '2025-11-02'
         
-        # 日付を判定
-        res_type = absent_res_id[0] if len(absent_res_id) > 0 else 'X'
-        date = '2025-11-01' if res_type in ['A', 'C', 'X'] else '2025-11-02'
         group_collection = 'group' if date == '2025-11-01' else 'group2'
         
-        # このグループの情報を取得
-        group_doc = db.collection(group_collection).document(str(group_num)).get()
+        # 呼び出し中のグループを取得
+        groups = db.collection(group_collection).stream()
+        calling_group = None
+        
+        for group_doc in groups:
+            if group_doc.to_dict().get('status', 0) == 1:
+                calling_group = int(group_doc.id)
+                break
+        
+        if not calling_group:
+            return
+        
+        # 呼び出し中のグループの情報を取得
+        group_doc = db.collection(group_collection).document(str(calling_group)).get()
         if not group_doc.exists:
             return
         
         group_data = group_doc.to_dict()
-        
-        # グループが呼び出し中でない場合は何もしない
-        if group_data.get('status', 0) != 1:
-            return
         
         # 後ろのグループから補充候補を探す
         all_reservations = db.collection('reservation').stream()
@@ -464,7 +623,7 @@ def fill_vacant_slot(absent_res_id):
                 continue
             
             # 現在のグループより後ろのグループ
-            if r_group <= group_num:
+            if r_group <= calling_group:
                 continue
             
             # 人数が空き枠以下
@@ -489,7 +648,7 @@ def fill_vacant_slot(absent_res_id):
         
         # 選択された予約を現在のグループに移動
         db.collection('reservation').document(selected['id']).update({
-            'group': group_num,
+            'group': calling_group,
             'priority': False  # 優先フラグをクリア
         })
         
@@ -508,11 +667,11 @@ def fill_vacant_slot(absent_res_id):
         current_reservations = group_data.get('reservation', [])
         if selected['id'] not in current_reservations:
             current_reservations.append(selected['id'])
-            db.collection(group_collection).document(str(group_num)).update({
+            db.collection(group_collection).document(str(calling_group)).update({
                 'reservation': current_reservations
             })
         
-        print(f"Filled vacant slot: moved {selected['id']} to group {group_num}")
+        print(f"Filled vacant slot: moved {selected['id']} to group {calling_group}")
         
     except Exception as e:
         print(f"Error in fill_vacant_slot: {e}")
@@ -527,13 +686,18 @@ def check_and_complete_group(res_id):
         if not res_doc.exists:
             return
         
-        group_num = res_doc.to_dict().get('group')
+        res_data = res_doc.to_dict()
+        group_num = res_data.get('group')
         if not group_num:
             return
         
-        # 日付を判定
-        res_type = res_id[0] if len(res_id) > 0 else 'X'
-        date = '2025-11-01' if res_type in ['A', 'C', 'X'] else '2025-11-02'
+        # 日付を判定（res_dataのdateフィールドを優先）
+        if res_data.get('date'):
+            date = res_data['date']
+        else:
+            res_type = res_id[0] if len(res_id) > 0 else 'X'
+            date = '2025-11-01' if res_type in ['A', 'C', 'X'] else '2025-11-02'
+        
         group_collection = 'group' if date == '2025-11-01' else 'group2'
         
         # グループ情報を取得
@@ -555,7 +719,8 @@ def check_and_complete_group(res_id):
             r_doc = db.collection('reservation').document(r_id).get()
             if r_doc.exists:
                 r_status = r_doc.to_dict().get('status', 0)
-                # status=0（待機中）がある場合は未完了
+                # status=0（待機中、優先予約含む）がある場合は未完了
+                # 優先予約は「来店」ボタンでstatus=1に変更する必要がある
                 if r_status == 0:
                     all_processed = False
                     break
@@ -720,7 +885,8 @@ def get_reservations():
                 'created_at': data.get('created_at', ''),
                 'time': data.get('time'),
                 'date': res_date,
-                'priority': data.get('priority', False)
+                'priority': data.get('priority', False),
+                'cancelled_reason': data.get('cancelled_reason')
             })
         
         print(f"Total reservations: {total_count}, Matched: {matched_count}")
