@@ -279,130 +279,112 @@ function displayNextGroup(data) {
 // 呼び出し済みグループを表示（4つ目のセクション）
 async function loadCalledGroups() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/reservations?date=${currentDate}`, {
+        // 新しいAPIエンドポイントを使用：すべての呼び出し中グループを取得
+        const response = await fetch(`${API_BASE_URL}/api/admin/calling-groups?date=${currentDate}`, {
             headers: {
                 'Authorization': `Bearer ${authToken}`
             }
         });
         
         const data = await response.json();
-        if (!response.ok) return;
+        if (!response.ok) {
+            console.error('Failed to load calling groups:', data);
+            return;
+        }
         
-        const reservations = data.reservations || [];
+        const callingGroups = data.groups || [];
         
-        // status=1のグループを取得（呼び出し中）
-        const groupMap = new Map();
-        
-        reservations.forEach(res => {
-            if (!res.group) return;
-            
-            if (!groupMap.has(res.group)) {
-                groupMap.set(res.group, {
-                    group: res.group,
-                    reservations: [],
-                    isCalling: false
-                });
-            }
-            
-            const groupData = groupMap.get(res.group);
-            groupData.reservations.push(res);
-        });
-        
-        // 呼び出し中のグループを取得（group collectionでstatus=1のもの）
-        const groupCollection = currentDate === '2025-11-01' ? 'group' : 'group2';
-        const groupsResponse = await fetch(`${API_BASE_URL}/api/admin/calling-group?date=${currentDate}`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
-        
-        const callingData = await groupsResponse.json();
-        
-        displayCalledGroups(callingData);
+        displayCalledGroups(callingGroups);
     } catch (error) {
         console.error('Error loading called groups:', error);
     }
 }
 
-function displayCalledGroups(data) {
+function displayCalledGroups(callingGroupsArray) {
     const container = document.getElementById('calledGroupsList');
     if (!container) return;
     
     container.innerHTML = '';
     
-    if (!data.group_number || !data.reservations || data.reservations.length === 0) {
+    if (!callingGroupsArray || callingGroupsArray.length === 0) {
         container.innerHTML = '<p class="loading-text">呼び出し中のグループはありません</p>';
         return;
     }
     
-    const groupNumber = data.group_number;
-    const reservations = data.reservations;
-    
-    const groupCard = document.createElement('div');
-    groupCard.className = 'called-group-card';
-    
-    let allVisited = true;
-    reservations.forEach(res => {
-        if (res.status === 0) allVisited = false;
-    });
-    
-    if (allVisited) {
-        groupCard.style.background = '#e8f5e9';
-        groupCard.style.borderColor = '#4caf50';
-    }
-    
-    const resCards = reservations.map(res => {
-        let statusBadge = '';
-        let cardClass = '';
-        
-        if (res.status === 0) {
-            statusBadge = '<span style="background: #2196f3; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 11px;">待機中</span>';
-            cardClass = 'status-waiting';
-        } else if (res.status === 1) {
-            statusBadge = '<span style="background: #4caf50; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 11px;">来店済み</span>';
-            cardClass = 'status-visited';
+    callingGroupsArray.forEach(data => {
+        if (!data.group_number || !data.reservations || data.reservations.length === 0) {
+            return;
         }
         
-        const priorityBadge = res.priority ? '<span style="background: #ff9800; color: #fff; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-left: 6px;">優先</span>' : '';
+        const groupNumber = data.group_number;
+        const reservations = data.reservations;
         
-        const buttons = res.status === 0 ? `
-            <div style="display: flex; gap: 8px; margin-top: 8px;">
-                <button class="btn btn-visit" style="flex: 1;" onclick="markVisit('${res.reservation_id}')">
-                    来店
-                </button>
-                <button class="btn btn-absent" style="flex: 1;" onclick="markAbsent('${res.reservation_id}')">
-                    不在
+        const groupCard = document.createElement('div');
+        groupCard.className = 'called-group-card';
+        
+        let allVisited = true;
+        reservations.forEach(res => {
+            if (res.status === 0) allVisited = false;
+        });
+        
+        if (allVisited) {
+            groupCard.style.background = '#e8f5e9';
+            groupCard.style.borderColor = '#4caf50';
+        }
+        
+        const resCards = reservations.map(res => {
+            let statusBadge = '';
+            let cardClass = '';
+            
+            if (res.status === 0) {
+                statusBadge = '<span style="background: #2196f3; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 11px;">待機中</span>';
+                cardClass = 'status-waiting';
+            } else if (res.status === 1) {
+                statusBadge = '<span style="background: #4caf50; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 11px;">来店済み</span>';
+                cardClass = 'status-visited';
+            }
+            
+            const priorityBadge = res.priority ? '<span style="background: #ff9800; color: #fff; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-left: 6px;">優先</span>' : '';
+            
+            const buttons = res.status === 0 ? `
+                <div style="display: flex; gap: 8px; margin-top: 8px;">
+                    <button class="btn btn-visit" style="flex: 1;" onclick="markVisit('${res.reservation_id}')">
+                        来店
+                    </button>
+                    <button class="btn btn-absent" style="flex: 1;" onclick="markAbsent('${res.reservation_id}')">
+                        不在
+                    </button>
+                </div>
+            ` : '';
+            
+            return `
+                <div class="reservation-status-card ${cardClass}">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <div style="font-weight: bold; font-size: 15px;">${res.reservation_id}${priorityBadge}</div>
+                        ${statusBadge}
+                    </div>
+                    <div style="font-size: 12px; color: #666; margin-bottom: 4px;">
+                        ${res.count}名 | ${res.type}${res.time ? ' | ' + res.time : ''}
+                    </div>
+                    ${buttons}
+                </div>
+            `;
+        }).join('');
+        
+        groupCard.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #e0e0e0;">
+                <div style="font-size: 22px; font-weight: bold;">
+                    グループ ${groupNumber}
+                </div>
+                <button class="btn" onclick="backToWaitingGroup(${groupNumber})" style="padding: 8px 16px;">
+                    待機中に戻す
                 </button>
             </div>
-        ` : '';
-        
-        return `
-            <div class="reservation-status-card ${cardClass}">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                    <div style="font-weight: bold; font-size: 15px;">${res.reservation_id}${priorityBadge}</div>
-                    ${statusBadge}
-                </div>
-                <div style="font-size: 12px; color: #666; margin-bottom: 4px;">
-                    ${res.count}名 | ${res.type}${res.time ? ' | ' + res.time : ''}
-                </div>
-                ${buttons}
-            </div>
+            ${resCards}
         `;
-    }).join('');
-    
-    groupCard.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #e0e0e0;">
-            <div style="font-size: 22px; font-weight: bold;">
-                グループ ${groupNumber}
-            </div>
-            <button class="btn" onclick="backToWaitingGroup(${groupNumber})" style="padding: 8px 16px;">
-                待機中に戻す
-            </button>
-        </div>
-        ${resCards}
-    `;
-    
-    container.appendChild(groupCard);
+        
+        container.appendChild(groupCard);
+    });
 }
 
 // グループを待機中に戻す
@@ -425,7 +407,10 @@ async function backToWaitingGroup(groupNumber) {
         });
         
         if (response.ok) {
-            loadNextGroup();
+            // 全セクションを更新
+            loadUpcomingGroups();
+            loadMultiCallGroups();
+            loadCalledGroups();
         } else {
             alert('グループを戻すことができませんでした');
         }
@@ -565,8 +550,10 @@ async function markVisit(reservationId) {
         });
         
         if (response.ok) {
+            // 全セクションを更新
             loadCalledGroups();
             loadUpcomingGroups();
+            loadMultiCallGroups();
         } else {
             alert('来店確認に失敗しました');
         }
@@ -587,8 +574,10 @@ async function markAbsent(reservationId) {
         });
         
         if (response.ok) {
+            // 不在になったら優先順位を考慮して待機中に表示されるように全セクションを更新
             loadCalledGroups();
             loadUpcomingGroups();
+            loadMultiCallGroups();
         } else {
             alert('不在マークに失敗しました');
         }
@@ -664,11 +653,24 @@ async function loadUpcomingGroups() {
         
         const reservations = data.reservations || [];
         
-        // グループごとに整理（status=0のみ）
+        // 呼び出し中のグループ番号を取得
+        const callingGroupsResponse = await fetch(`${API_BASE_URL}/api/admin/calling-groups?date=${currentDate}`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        const callingGroupsData = await callingGroupsResponse.json();
+        const callingGroupNumbers = new Set(
+            (callingGroupsData.groups || []).map(g => g.group_number)
+        );
+        
+        // グループごとに整理（status=0のみ、かつ呼び出し中でないもの）
         const groupMap = new Map();
         
         reservations.forEach(res => {
             if (res.status !== 0 || !res.group) return;
+            // 呼び出し中のグループは除外
+            if (callingGroupNumber && res.group === callingGroupNumber) return;
             
             if (!groupMap.has(res.group)) {
                 groupMap.set(res.group, {
@@ -790,11 +792,22 @@ async function loadMultiCallGroups() {
         
         const reservations = data.reservations || [];
         
-        // グループごとに整理（status=0のみ）
+        // 呼び出し中のグループ番号を取得
+        const callingGroupsResponse = await fetch(`${API_BASE_URL}/api/admin/calling-group?date=${currentDate}`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        const callingData = await callingGroupsResponse.json();
+        const callingGroupNumber = callingData.group_number;
+        
+        // グループごとに整理（status=0のみ、かつ呼び出し中でないもの）
         const groupMap = new Map();
         
         reservations.forEach(res => {
             if (res.status !== 0 || !res.group) return;
+            // 呼び出し中のグループは除外
+            if (callingGroupNumber && res.group === callingGroupNumber) return;
             
             if (!groupMap.has(res.group)) {
                 groupMap.set(res.group, {
@@ -913,7 +926,9 @@ async function callSingleGroup(groupNumber) {
         });
         
         if (response.ok) {
-            // 呼び出し後、画面を更新
+            // 呼び出し後、全セクションを更新
+            loadUpcomingGroups();
+            loadMultiCallGroups();
             loadCalledGroups();
         } else {
             alert('グループの呼び出しに失敗しました');
@@ -950,6 +965,9 @@ async function callMultipleGroups() {
         
         selectedMultiCallGroups.clear();
         alert('グループを呼び出しました');
+        // 全セクションを更新
+        loadUpcomingGroups();
+        loadMultiCallGroups();
         loadCalledGroups();
     } catch (error) {
         console.error('Error calling multiple groups:', error);

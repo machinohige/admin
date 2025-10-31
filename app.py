@@ -486,6 +486,75 @@ def get_calling_group():
         print(f"Error in get_calling_group: {e}")
         return jsonify({'error': str(e)}), 500
 
+# すべての呼び出し中のグループを取得（複数対応）
+@app.route('/api/admin/calling-groups', methods=['GET'])
+@require_auth
+def get_calling_groups():
+    try:
+        date = request.args.get('date', '2025-11-01')
+        group_collection = 'group' if date == '2025-11-01' else 'group2'
+        
+        calling_groups = []
+        groups = db.collection(group_collection).stream()
+        
+        for group_doc in groups:
+            group_num = int(group_doc.id)
+            group_data = group_doc.to_dict()
+            
+            # status=1（呼び出し中）のグループのみ
+            if group_data.get('status', 0) != 1:
+                continue
+            
+            # このグループの予約情報を取得
+            reservations = []
+            reservation_ids = group_data.get('reservation', [])
+            
+            for res_id in reservation_ids:
+                res_doc = db.collection('reservation').document(res_id).get()
+                if res_doc.exists:
+                    res_data = res_doc.to_dict()
+                    res_status = res_data.get('status', 0)
+                    
+                    # 優先予約の15分タイムアウトチェック
+                    if res_data.get('priority', False) and res_status == 0:
+                        absent_at = res_data.get('absent_at')
+                        if absent_at:
+                            try:
+                                absent_time = datetime.fromisoformat(absent_at)
+                                elapsed = (datetime.now() - absent_time).total_seconds() / 60
+                                
+                                if elapsed >= 15:
+                                    print(f"Priority timeout in calling group {res_id}: {elapsed:.1f} minutes")
+                                    db.collection('reservation').document(res_id).update({
+                                        'status': 2,
+                                        'priority': False,
+                                        'cancelled_reason': 'priority_timeout'
+                                    })
+                                    continue
+                            except Exception as e:
+                                print(f"Error parsing absent_at: {e}")
+                    
+                    # すべてのステータスの予約を返す（status=0,1,2すべて）
+                    reservations.append({
+                        'reservation_id': res_id,
+                        'count': res_data.get('count', 0),
+                        'type': res_id[0] if len(res_id) > 0 else 'X',
+                        'time': res_data.get('time'),
+                        'status': res_status,
+                        'priority': res_data.get('priority', False)
+                    })
+            
+            if reservations:  # 予約があるグループのみ追加
+                calling_groups.append({
+                    'group_number': group_num,
+                    'reservations': reservations
+                })
+        
+        return jsonify({'groups': calling_groups})
+    except Exception as e:
+        print(f"Error in get_calling_groups: {e}")
+        return jsonify({'error': str(e)}), 500
+
 # 予約を来店済みにする
 @app.route('/api/admin/reservations/<res_id>/visit', methods=['POST'])
 @require_auth
