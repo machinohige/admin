@@ -1,6 +1,5 @@
 // グローバル変数
 const API_BASE_URL = 'https://kunugida-reservation-admin-api-pv3b3g64na-an.a.run.app';
-// グローバル変数
 
 // デバッグ: 起動時にURLを確認
 console.log('=== 予約管理システム起動 ===');
@@ -225,6 +224,11 @@ async function loadGroupScreen() {
     const priorityReservations = [];
 
     data.forEach(res => {
+        // 不在の予約は除外
+        if (res.absent) {
+            return;
+        }
+        
         const firstChar = res.id[0];
         
         if (firstChar === 'X' || firstChar === 'Y') {
@@ -430,7 +434,16 @@ async function markAsAbsent(reservationId) {
     });
 
     if (result && result.success) {
+        // 呼び出しグループから削除
         removeFromCallGroup(reservationId);
+        
+        // 待機中のリストから削除（DOMから直接削除）
+        const cardInQueue = document.querySelector(`#normal-queue [data-id="${reservationId}"], #priority-queue [data-id="${reservationId}"]`);
+        if (cardInQueue) {
+            cardInQueue.remove();
+        }
+        
+        // 不在リストを再読み込み
         loadAbsentList();
     }
 }
